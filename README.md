@@ -89,7 +89,7 @@
 
 <h2>Install</h2>
 <p>On the Steam Deck or any Steam machine, the <a href="https://github.com/ubermoc/Ubermoc-Warcraft-Mod-Updater">Ubermoc Warcraft Mod Updater</a> plugin offers to install this addon the first time you open Midnight or Forever, and keeps it updated.</p>
-<p>By hand: download <code>UbermocUI-&lt;version&gt;.zip</code> from the <a href="https://github.com/ubermoc/UbermocUI/releases/latest">latest release</a> (or from the <a href="https://www.curseforge.com/wow/addons/ubermoc-ui">CurseForge page</a>) and extract the <code>UbermocUI</code> folder into <code>World of Warcraft/_retail_/Interface/AddOns</code> (Midnight) or <code>_forever_/Interface/AddOns</code> (Forever).</p>
+<p>By hand: download <code>UbermocUI-&lt;version&gt;.zip</code> from the <a href="https://github.com/ubermoc/Ubermoc-UI/releases/latest">latest release</a> (or from the <a href="https://www.curseforge.com/wow/addons/ubermoc-ui">CurseForge page</a>) and extract the <code>UbermocUI</code> folder into <code>World of Warcraft/_retail_/Interface/AddOns</code> (Midnight) or <code>_forever_/Interface/AddOns</code> (Forever).</p>
 
 <h2>Getting started</h2>
 <ol>
