@@ -2025,7 +2025,7 @@ local function bindClickTarget(n)
         -- a frame being moved: A puts it down
     elseif n and n.ubSecure and n:GetName() then
         tl, tr = n:GetName(), n:GetName()
-    elseif realButton(n) and cursor.clickBtn then
+    elseif realButton(n) and cursor.clickBtn and not n.holdFn then   -- hold-to-repeat buttons keep A on our own key
         cursor.clickBtn:SetAttribute("clickbutton", n)
         cursor.rightBtn:SetAttribute("clickbutton", n)
         tl, tr = "UbermocCursorClickBtn", "UbermocCursorRightBtn"
@@ -2224,6 +2224,12 @@ local function move(dir, tries)
     refreshNodes()
     local cur = cursor.cur
     if not cur then return end
+    -- On a number or a list (sliders, cyclers), left / right changes the value; held, it speeds up like - and +.
+    if (dir == "LEFT" or dir == "RIGHT") and cur.ubNudge and (not cur.IsEnabled or cur:IsEnabled()) then
+        local t = cursor.heldAll or 0
+        cur.ubNudge(dir == "RIGHT" and 1 or -1, (t > 3 and 25) or (t > 1.5 and 5) or 1)
+        return
+    end
     local cl, cb, cr, ct = rectOf(cur)
     if not cl then return end
     local cx, cy = (cl + cr) / 2, (cb + ct) / 2
@@ -3158,6 +3164,7 @@ function API.pointerHintText(sep)
     local function key(k) return "|cffffd100[" .. lab(k) .. "]|r" end
     local parts = { "|cffffd100[D-pad]|r Move" }
     parts[#parts + 1] = key(bound("UBERMOCUI_CURSORCLICK", "PAD1")) .. " Click"
+    parts[#parts + 1] = "|cffffd100[Left Right]|r on a number: Change"
     parts[#parts + 1] = key(bound("UBERMOCUI_CURSORRIGHT", "PAD3")) .. " Right-click"
     parts[#parts + 1] = key(bound("UBERMOCUI_CURSORMENU", "PAD4")) .. " Menu"
     parts[#parts + 1] = key(bound("UBERMOCUI_CURSORBACK", "PAD2")) .. " Back"
@@ -3350,6 +3357,22 @@ local function buildCursor()
         local btn = CreateFrame("Button", "UbermocCursorKey" .. act, UIParent)
         btn:RegisterForClicks("AnyDown", "AnyUp")
         btn:SetScript("OnClick", function(_, _, down)
+            -- A on a hold-to-repeat button (- and +, < and >, Up and Down): held, it repeats like a held mouse button.
+            local hb = cursor.holdBtn
+            if act == "A" and not down and hb then
+                cursor.holdBtn = nil
+                local up = hb:GetScript("OnMouseUp")
+                if up then up(hb, "LeftButton") end
+                if hb.repeated then hb.repeated = false elseif hb.holdFn then hb.holdFn(1) end
+                return
+            end
+            local cn = cursor.cur
+            if act == "A" and down and cursor.active and not cursor.grab and cn and cn.holdFn and cn:IsVisible()
+                and (not cn.IsEnabled or cn:IsEnabled()) and cn:GetScript("OnMouseDown") then
+                cursor.holdBtn = cn
+                cn:GetScript("OnMouseDown")(cn, "LeftButton")
+                return
+            end
             if down then
                 cursor.heldAll = 0
                 padAction(act)
@@ -3391,7 +3414,8 @@ local function buildCursor()
         if cursor.held and cursor.active then
             cursor.heldT = (cursor.heldT or 0) + dt
             cursor.heldAll = (cursor.heldAll or 0) + dt
-            local every = cursor.grab and 0.05 or 0.12
+            local cn = cursor.cur
+            local every = cursor.grab and 0.05 or ((cursor.held == "LEFT" or cursor.held == "RIGHT") and cn and cn.ubNudge and 0.1) or 0.12
             if cursor.heldT >= every and not cursor.scrollPending then
                 cursor.heldT = 0
                 if cursor.grab then nudgeGrab(cursor.held) else move(cursor.held) end

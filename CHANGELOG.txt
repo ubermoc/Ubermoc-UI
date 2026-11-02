@@ -1,4 +1,6 @@
-UbermocUI 1.0.105
-- Aiming: the built-in ground spell list grew from 4 to 28 spells (Flamestrike, Meteor, Ring of Frost, Shadowfury, Cataclysm, Summon Infernal, Demonic Gateway, Anti-Magic Zone, Earthquake, Healing Rain, Mass Dispel, Power Word: Barrier, Holy Word: Sanctify, Ursol's Vortex, Light's Hammer, Ring of Peace, the Monk statues, Flare, Rescue, Landslide, Breath of Eons and more). They are matched by spell ID, so every game language works.
-- Aiming: a ground spell that is not in the list is now learned by itself the first time its button opens a reticle; it then holds to aim and releases to cast. A line in chat says so, and /ubground remove Name undoes it.
-- Aiming: new "Aim height" slider (30 to 90%, default 70%) on the Aiming page. It sets the game's own centered pointer height, so ground spells land there and the mark follows.
+UbermocUI 1.0.106
+- Controller: put the pointer on a number in the settings and press D-pad left / right to change it. Hold to keep going; it speeds up after 1.5 and 3 seconds.
+- Controller: holding A on -, +, < or > (and the list Up / Down buttons) now repeats, the same as holding the mouse button. Before, A only ever made one step.
+- Every hold-to-repeat now uses one timing: 0.5 seconds before it starts, then every 0.1 seconds (the game's own scroll arrows use the same).
+- Number settings with a wide range now stop at their own ends instead of running past them.
+- The pointer hint line now says that left / right changes a number.

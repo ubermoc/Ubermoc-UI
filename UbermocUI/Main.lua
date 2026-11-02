@@ -1408,12 +1408,14 @@ function UbermocUIAPI.flatButton(b)
     return b
 end
 
--- Hold to repeat: a click runs b.holdFn(1) once; held down it repeats after 0.4 s. With b.holdBig the
--- steps grow the longer it is held (x5 after 1.5 s, x25 after 3 s). The OnUpdate only runs while held,
--- and the scripts are shared functions so no closures are made per button.
+-- Hold to repeat: a click runs b.holdFn(1) once; held down it repeats after 0.5 s, every 0.1 s (the game's own
+-- scroll arrows use the same timing). With b.holdBig the steps grow the longer it is held (x5 after 1.5 s, x25
+-- after 3 s). The controller's A and D-pad use the same timing. The OnUpdate only runs while held, and the scripts
+-- are shared functions so no closures are made per button.
+H.REPEAT_DELAY, H.REPEAT_GAP = 0.5, 0.1
 function H.holdUpdate(b, dt)
     b.holdT = b.holdT + dt
-    if b.holdT < 0.4 then return end
+    if b.holdT < H.REPEAT_DELAY then return end
     b.holdTick = b.holdTick + dt
     if b.holdTick < b.holdGap then return end
     b.holdTick = 0
@@ -1433,7 +1435,7 @@ function H.holdClick(b)
     b.holdFn(1)
 end
 function H.holdRepeat(b, fn, gap, big)
-    b.holdFn, b.holdGap, b.holdBig = fn, gap or 0.07, big
+    b.holdFn, b.holdGap, b.holdBig = fn, gap or H.REPEAT_GAP, big
     b:SetScript("OnMouseDown", H.holdDown)
     b:SetScript("OnMouseUp", H.holdUp)
     b:SetScript("OnHide", H.holdUp)
@@ -1450,18 +1452,15 @@ function H.sliderShow(s, v)
     end
 end
 
--- Number stepper: [ - ] [ value ] [ + ]. Hold - or + to keep going (it speeds up). On a controller,
--- D-pad left / right on the number changes it too (hold to speed up). Ranges with real limits (a few
--- steps, or 0-100) show a bar in the number box, and clicking the bar with the mouse jumps there.
--- Other ranges are open-ended, only stopping at 0 where a negative number makes no sense; for those
--- a mouse click on the number opens a typing field (never needed: - and + reach any value).
+-- Number stepper: [ - ] [ value ] [ + ]. Hold - or + to keep going (it speeds up), with the mouse or with A.
+-- On a controller, D-pad left / right on the number changes it too (hold to speed up). Ranges with a few steps,
+-- or 0-100, show a bar in the number box, and clicking the bar with the mouse jumps there. Wider ranges stop at
+-- their own ends; a mouse click on the number opens a typing field (never needed: - and + reach any value).
 local function makeSlider(parent, w, min, max, step, fmt, onChange)
     local span = max - min
     local lo, hi = min, max
     local bounded = true
     if span > 20 and not (min == 0 and max == 100) then
-        lo = (min >= 0) and min or -100000
-        hi = 100000
         bounded = false
     end
     local s = CreateFrame("Slider", nil, parent)
@@ -1492,8 +1491,7 @@ local function makeSlider(parent, w, min, max, step, fmt, onChange)
     box:SetAllPoints(s)
     UbermocUIAPI.flatButton(box)
     s.box = box
-    box.ubNudge = s.nudge
-    box.ubSkipCursor = true   -- the pointer uses the - and + buttons beside the number
+    box.ubNudge = s.nudge     -- the controller pointer stops on the number: D-pad left / right changes it
     if bounded then
         local A = UbermocUIAPI.accent
         -- A thin bar along the bottom of the number: how far along the range the value is.
@@ -1917,11 +1915,11 @@ function H.cycler(parent, x, y, w, list, get, set)
         c.refresh()
     end
     c.prev = newButton(f, "<", 26, 0, 0, nil)
-    H.holdRepeat(c.prev, function() c.step(-1) end, 0.18)
+    H.holdRepeat(c.prev, function() c.step(-1) end)
     c.box = newButton(f, "", w, 30, 0, function() c.step(1) end)
     c.box.ubNudge = c.step
     c.next = newButton(f, ">", 26, 34 + w, 0, nil)
-    H.holdRepeat(c.next, function() c.step(1) end, 0.18)
+    H.holdRepeat(c.next, function() c.step(1) end)
     c.count = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     c.count:SetPoint("LEFT", c.next, "RIGHT", 6, 0)
     c.refresh = function()
@@ -2065,8 +2063,10 @@ local function buildEditor(parent, list)
     sb:SetScript("OnValueChanged", function(self, v) if not self.silent then setScroll(v) end end)
     sb:SetValue(0)
 
-    upB = newButton(parent, "Up", 84, 16, -404, function() setScroll(scroll - ROW * 3) end)
-    dnB = newButton(parent, "Down", 84, 108, -404, function() setScroll(scroll + ROW * 3) end)
+    upB = newButton(parent, "Up", 84, 16, -404, nil)
+    dnB = newButton(parent, "Down", 84, 108, -404, nil)
+    H.holdRepeat(upB, function() setScroll(scroll - ROW * 3) end)
+    H.holdRepeat(dnB, function() setScroll(scroll + ROW * 3) end)
     if scrollMax == 0 then sb:Hide(); upB:Hide(); dnB:Hide() end
 
     -- Elements you changed are marked in gold; with headings, each heading opens and closes its group.
@@ -2250,8 +2250,10 @@ local function buildEditor(parent, list)
 
     -- Scroll, copy and paste. Copy takes everything set on this element (situations
     -- and Always hide); Paste replaces the selected element's settings with it.
-    local rowUp = newButton(rp, "Up", 74, 222, -452, function() setRowScroll(rScroll - RROW * 3) end)
-    local rowDown = newButton(rp, "Down", 74, 300, -452, function() setRowScroll(rScroll + RROW * 3) end)
+    local rowUp = newButton(rp, "Up", 74, 222, -452, nil)
+    local rowDown = newButton(rp, "Down", 74, 300, -452, nil)
+    H.holdRepeat(rowUp, function() setRowScroll(rScroll - RROW * 3) end)
+    H.holdRepeat(rowDown, function() setRowScroll(rScroll + RROW * 3) end)
     if rMax == 0 then rowUp:Hide(); rowDown:Hide() end
     copyBtn = newButton(rp, "Copy", 70, 384, -452, function()
         local e = list[idx]
