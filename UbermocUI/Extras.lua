@@ -3811,7 +3811,7 @@ local function buildInteractPage()
         end
         pcall(deactivate)
     end
-    API.makeTabs(panel, scroll, p, { { "Interact", 0 }, { "Interface cursor buttons", -506 } })
+    API.makeTabs(panel, scroll, p, { { "Interact", 0 }, { "Interface cursor", -382 } })
     addPage(panel, "Interact")
 end
 

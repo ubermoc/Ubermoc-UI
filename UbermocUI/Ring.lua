@@ -1135,7 +1135,7 @@ local function buildPage(c)
             or "Class icon and picture border are for the pet-style frame.")
     end
     API.newLockButton(p, 400, -14)
-    local tabDefs = { { "Frame", 0 }, { "Size & Position", -440 }, { "Cast Information", -860 } }
+    local tabDefs = { { "Frame", 0 }, { "Size & Position", -450 }, { "Cast Information", -860 } }   -- Health colour (-436) stays on Frame
     local haRefresh
     local acUnit = c.unit == "targettarget" or c.unit == "focustarget"
     if c.unit == "player" or c.unit == "target" or c.unit == "focus" or acUnit then

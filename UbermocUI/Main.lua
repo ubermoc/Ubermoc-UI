@@ -2450,7 +2450,7 @@ UbermocUIAPI.COMPOSITES = {
 }
 UbermocUIAPI.subOf = { fade = { "fading", 1 }, timing = { "fading", 2 },
     ringhud = { "unitframes", 1 }, ringpet = { "unitframes", 2 }, ringtarget = { "unitframes", 3 }, ringtot = { "unitframes", 4 },
-    ringfocus = { "unitframes", 5 }, ringfot = { "unitframes", 6 }, party = { "unitframes", 7 }, raid = { "unitframes", 8 }, targetframe = { "unitframes", 9 } }
+    ringfocus = { "unitframes", 5 }, ringfot = { "unitframes", 6 }, party = { "unitframes", 7 }, raid = { "unitframes", 8 }, targetframe = { "unitframes", 3 } }
 
 -- Reset to defaults: each page registers a function; the window's footer button runs it.
 UbermocUIAPI.resetters = UbermocUIAPI.resetters or {}

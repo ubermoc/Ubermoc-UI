@@ -103,6 +103,7 @@ local function buildPage()
     API.newLabel(sc, "These are the game's own options. Changing one here changes it in the game's Options screen too.", 8, y, "GameFontHighlightSmall")
     y = y - 30
     local tabDefs = {}
+    local ov
     for _, sec in ipairs(SECTIONS) do
         tabDefs[#tabDefs + 1] = { sec[1], #tabDefs == 0 and 0 or (y + 10) }
         API.newLabel(sc, sec[1], 8, y, "GameFontNormalLarge")
@@ -121,13 +122,15 @@ local function buildPage()
             boxes[#boxes + 1] = { cb = cb, e = e }
             y = y - 30
         end
+        if sec[1] == "Targeting and combat" then
+            -- Spell overlay strength, under the spell activation overlays option
+            API.newLabel(sc, "Spell overlay strength", 38, y - 4)
+            ov = API.makeSlider(sc, 160, 0, 1, 0.05, pct, function(v) cvarSet("spellActivationOverlayOpacity", math.floor(v * 100 + 0.5) / 100) end)
+            ov:SetPoint("TOPLEFT", 260, y)
+            y = y - 40
+        end
         y = y - 10
     end
-    -- Spell overlay strength (with the targeting and combat options)
-    API.newLabel(sc, "Spell overlay strength", 38, y - 4)
-    local ov = API.makeSlider(sc, 160, 0, 1, 0.05, pct, function(v) cvarSet("spellActivationOverlayOpacity", math.floor(v * 100 + 0.5) / 100) end)
-    ov:SetPoint("TOPLEFT", 260, y)
-    y = y - 40
     sc:SetHeight(-y + 20)
     if API.makeTabs and #tabDefs > 1 then API.makeTabs(panel, scroll, sc, tabDefs) end
 

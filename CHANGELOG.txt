@@ -1,6 +1,5 @@
-UbermocUI 1.0.106
-- Controller: put the pointer on a number in the settings and press D-pad left / right to change it. Hold to keep going; it speeds up after 1.5 and 3 seconds.
-- Controller: holding A on -, +, < or > (and the list Up / Down buttons) now repeats, the same as holding the mouse button. Before, A only ever made one step.
-- Every hold-to-repeat now uses one timing: 0.5 seconds before it starts, then every 0.1 seconds (the game's own scroll arrows use the same).
-- Number settings with a wide range now stop at their own ends instead of running past them.
-- The pointer hint line now says that left / right changes a number.
+UbermocUI 1.0.107
+- Interact page: the whole "Interface cursor" section (its on switch, Open automatically and Tooltips) is now on its own tab, renamed "Interface cursor". Before, half of it showed on the Interact tab.
+- Halo unit frames: the Health colour row (label, buttons and colour square) is now all on the Frame tab. Before, the label and its buttons were on different tabs.
+- Game Options: "Spell overlay strength" now sits under "Spell activation overlays" on the Targeting and combat tab, instead of on Action bars and chat.
+- An old link to the Target unit frame opened a tab that no longer exists; it now opens Target.
