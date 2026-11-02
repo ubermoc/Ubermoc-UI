@@ -1,2 +1,4 @@
-UbermocUI 1.0.104
-- Text only: the Cinematic page heading "Immersion" is now "Atmosphere", so no word in the settings can be mistaken for another addon.
+UbermocUI 1.0.105
+- Aiming: the built-in ground spell list grew from 4 to 28 spells (Flamestrike, Meteor, Ring of Frost, Shadowfury, Cataclysm, Summon Infernal, Demonic Gateway, Anti-Magic Zone, Earthquake, Healing Rain, Mass Dispel, Power Word: Barrier, Holy Word: Sanctify, Ursol's Vortex, Light's Hammer, Ring of Peace, the Monk statues, Flare, Rescue, Landslide, Breath of Eons and more). They are matched by spell ID, so every game language works.
+- Aiming: a ground spell that is not in the list is now learned by itself the first time its button opens a reticle; it then holds to aim and releases to cast. A line in chat says so, and /ubground remove Name undoes it.
+- Aiming: new "Aim height" slider (30 to 90%, default 70%) on the Aiming page. It sets the game's own centered pointer height, so ground spells land there and the mark follows.

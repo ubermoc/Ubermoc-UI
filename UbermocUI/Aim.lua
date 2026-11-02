@@ -6,7 +6,7 @@ if not API then return end
 local MEDIA = "Interface\\AddOns\\UbermocUI\\Media\\"
 
 local function defaults()
-    return { hold = true, center = true, mark = false, when = "aim", style = "cross", size = 4, thick = 1, a = 80, x = 0, y = 0, r = 1, g = 1, b = 1 }
+    return { hold = true, center = true, mark = false, when = "aim", style = "cross", size = 4, thick = 1, a = 80, x = 0, y = 0, r = 1, g = 1, b = 1, height = 70 }
 end
 local filled
 local function DB()
@@ -65,6 +65,18 @@ local function applyCenterAim()
 end
 API.aimApplyCenter = applyCenterAim
 
+-- Where the pointer rests while the controller steers the camera: the game's own CursorCenteredYPos (a fraction of the
+-- screen height from the bottom). Ground spells land there and the mark follows it, so both move together.
+local function applyHeight()
+    local h = tonumber(DB().height)
+    if not h then return end
+    h = math.max(0.3, math.min(0.9, h / 100))
+    local ok, cur = pcall(GetCVar, "CursorCenteredYPos")
+    if not ok or cur == nil then return end
+    if math.abs((tonumber(cur) or 0) - h) > 0.001 then pcall(SetCVar, "CursorCenteredYPos", string.format("%.2f", h)) end
+end
+API.aimApplyHeight = applyHeight
+
 ----------------------------------------------------------------------
 -- Why the game's own setting is not enough: Blizzard's "Press and Hold Casting" only does something on release for
 -- buttons that have a "typerelease" action, and the game gives that only to empowered spells (Evoker). A ground
@@ -72,9 +84,39 @@ API.aimApplyCenter = applyCenterAim
 -- given one here: pressing shows the reticle as always, letting go stops it and casts the spell at the pointer.
 -- (This is done out of combat; the buttons are checked again whenever the bars change.)
 ----------------------------------------------------------------------
--- Spells known to be placed on the ground with a reticle, matched by name. Only spells with a source are built in:
--- Heroic Leap, Blizzard, Rain of Fire and Death and Decay. Add any other with /ubground add Spell Name (the name as your game shows it, in your language).
-local GROUND = { "Heroic Leap", "Blizzard", "Rain of Fire", "Death and Decay" }
+-- Spells that are placed on the ground with a reticle, matched by spell ID (so any game language works). Spells placed at
+-- your feet are left out on purpose: they would be cast twice. A spell that is missing is learned the first time its button
+-- starts a reticle, or add it with /ubground add Spell Name (the name as your game shows it).
+local GROUND_IDS = {
+    [6544] = true,    -- Heroic Leap
+    [190356] = true,  -- Blizzard
+    [2120] = true,    -- Flamestrike
+    [153561] = true,  -- Meteor
+    [113724] = true,  -- Ring of Frost
+    [5740] = true,    -- Rain of Fire
+    [30283] = true,   -- Shadowfury
+    [152108] = true,  -- Cataclysm
+    [1122] = true,    -- Summon Infernal
+    [111771] = true,  -- Demonic Gateway
+    [43265] = true,   -- Death and Decay
+    [152280] = true,  -- Defile
+    [51052] = true,   -- Anti-Magic Zone
+    [191427] = true,  -- Metamorphosis (Havoc)
+    [61882] = true,   -- Earthquake
+    [73920] = true,   -- Healing Rain
+    [32375] = true,   -- Mass Dispel
+    [62618] = true,   -- Power Word: Barrier
+    [34861] = true,   -- Holy Word: Sanctify
+    [102793] = true,  -- Ursol's Vortex
+    [114158] = true,  -- Light's Hammer
+    [116844] = true,  -- Ring of Peace
+    [115315] = true,  -- Summon Black Ox Statue
+    [115313] = true,  -- Summon Jade Serpent Statue
+    [1543] = true,    -- Flare
+    [370665] = true,  -- Rescue
+    [358385] = true,  -- Landslide
+    [403631] = true,  -- Breath of Eons
+}
 local BARS = { "ActionButton", "MultiBarBottomLeftButton", "MultiBarBottomRightButton", "MultiBarRightButton", "MultiBarLeftButton",
                "MultiBar5Button", "MultiBar6Button", "MultiBar7Button" }
 local groundNames = {}
@@ -87,7 +129,6 @@ end
 
 local function buildSets()
     groundNames = {}
-    for _, nm in ipairs(GROUND) do groundNames[nm:lower()] = true end
     for _, nm in ipairs(DB().extra) do groundNames[nm:lower()] = true end
 end
 
@@ -97,10 +138,12 @@ local function groundSpellOf(slot)
     local ok, t, id = pcall(GetActionInfo, slot)
     if not ok or t ~= "spell" or type(id) ~= "number" then return nil end
     local name = spellName(id)
-    if name and groundNames[name:lower()] then return name end
+    if not name then return nil end
+    if GROUND_IDS[id] or groundNames[name:lower()] then return name end
     -- the spell this one replaces (talents and forms swap spells for another)
     local okb, base = pcall(function() return C_Spell and C_Spell.GetBaseSpell and C_Spell.GetBaseSpell(id) end)
     if okb and type(base) == "number" and base ~= id then
+        if GROUND_IDS[base] then return name end
         local bn = spellName(base)
         if bn and groundNames[bn:lower()] then return name end
     end
@@ -108,7 +151,36 @@ local function groundSpellOf(slot)
 end
 
 local dirty
-local function applyGround()
+local applyGround
+
+-- A spell that is not in the list but starts a reticle when its button is pressed is a ground spell: it is added to the
+-- player's own list (shown by /ubground list) and set up for hold-and-release from then on.
+local function learnFrom(b)
+    if not b.action then return end
+    local ok, t, id = pcall(GetActionInfo, b.action)
+    if not ok or t ~= "spell" or type(id) ~= "number" then return end
+    local name = spellName(id)
+    if not name or groundSpellOf(b.action) then return end
+    local d = DB()
+    d.extra[#d.extra + 1] = name
+    buildSets()
+    print("|cff66ccffUbermoc UI|r " .. name .. " starts a reticle, so it is now a hold-to-aim, release-to-cast ground spell. Undo with /ubground remove " .. name)
+    dirty = true
+    if not InCombatLockdown() then applyGround() end
+end
+local function watchPress(b)
+    if b.ubWatch then return end
+    b.ubWatch = true
+    b:HookScript("PreClick", function(self)
+        if self.ubGround or not DB().hold then return end
+        if SpellIsTargeting and SpellIsTargeting() then return end   -- a reticle was already open
+        C_Timer.After(0.1, function()
+            if SpellIsTargeting and SpellIsTargeting() then learnFrom(self) end
+        end)
+    end)
+end
+
+function applyGround()
     if InCombatLockdown() then dirty = true; return end
     dirty = false
     buildSets()
@@ -117,6 +189,7 @@ local function applyGround()
         for i = 1, 12 do
             local b = _G[prefix .. i]
             if b and b.SetAttribute and not (b.IsForbidden and b:IsForbidden()) then
+                if on then watchPress(b) end
                 local name = on and groundSpellOf(b.action) or nil
                 if name then
                     b:SetAttribute("typerelease", "macro")
@@ -261,7 +334,7 @@ do
     ev:SetScript("OnEvent", function(_, event)
         if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
             applyHold()
-            if C_Timer and C_Timer.After then C_Timer.After(3, function() applyHold(); applyCenterAim(); applyGround() end) end
+            if C_Timer and C_Timer.After then C_Timer.After(3, function() applyHold(); applyCenterAim(); applyHeight(); applyGround() end) end
             return
         end
         if event == "PLAYER_REGEN_ENABLED" then
@@ -285,13 +358,14 @@ SlashCmdList["UBERMOCAIM"] = function()
     for _, prefix in ipairs(BARS) do for i = 1, 12 do local b = _G[prefix .. i]; if b and b.ubGround then n = n + 1 end end end
     say("action buttons set up for hold-and-release: " .. n)
     local okT, tv = pcall(GetCVar, TCV)
+    say("aim height setting: " .. tostring(d.height) .. "%")
     say("game setting " .. TCV .. ": " .. tostring(okT and tv or "not found") .. ", keep aim in the middle: " .. yn(d.center))
     say("mark frame shown: " .. yn(mark and mark:IsShown()))
     API.aimPreview()
     say("showing the mark for 3 seconds now")
 end
 
--- /ubground add Name | remove Name | list : more ground spells (by name) besides the built-in ones.
+-- /ubground add Name | remove Name | list : more ground spells (by name) besides the built-in ones; spells that open a reticle are added by themselves.
 SLASH_UBERMOCGROUND1 = "/ubground"
 SlashCmdList["UBERMOCGROUND"] = function(msg)
     local cmd, rest = (msg or ""):match("^%s*(%S*)%s*(.-)%s*$")
@@ -333,7 +407,7 @@ function API.buildAim(sc, y0)
     refreshers[#refreshers + 1] = function() holdCB:SetChecked(DB().hold and true or false) end
     y = y - 32
     note(hasHeld()
-        and "For Heroic Leap, Blizzard and other spells you place on the ground: hold the button to aim, let go to cast where the pointer is. Works for spells on the action bars; add one that is missing with /ubground add Spell Name. It needs the game's cast-on-press setting, which is switched on together with it."
+        and "For Heroic Leap, Blizzard and other spells you place on the ground: hold the button to aim, let go to cast where the pointer is. Works for spells on the action bars; more than thirty are built in, and a missing one is learned the first time its button opens a reticle (or add it with /ubground add Spell Name). It needs the game's cast-on-press setting, which is switched on together with it."
         or "This game does not have the Press and Hold Casting setting, so there is nothing to switch on here.", 48, y)
     y = y - 70
 
@@ -345,6 +419,15 @@ function API.buildAim(sc, y0)
     y = y - 32
     note("The game normally hands the aim to the sticks while a ground spell waits for a spot (its setting GamePadCursorForTargeting). With this on that is switched off, so the spell lands where the pointer rests in the middle of the screen, which is where the mark is. Your old setting is put back when you turn this off.", 48, y)
     y = y - 70
+
+    API.newLabel(sc, "Aim height", 48, y - 4)
+    local hs = API.makeSlider(sc, 140, 30, 90, 1, function(v) return math.floor(v + 0.5) .. "%" end,
+        function(v) DB().height = math.floor(v + 0.5); applyHeight(); changed() end)
+    hs:SetPoint("TOPLEFT", 240, y)
+    refreshers[#refreshers + 1] = function() API.setSlider(hs, DB().height) end
+    y = y - 34
+    note("How high on the screen the aim rests, from the bottom. 70% by default. This is the game's own setting for the centered pointer, so the mark and the spell move together.", 48, y)
+    y = y - 40
 
     API.newLabel(sc, "Crosshair or dot", 16, y, "GameFontNormalLarge")
     y = y - 32
