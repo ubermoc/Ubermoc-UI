@@ -3665,38 +3665,18 @@ end
 -- their unit frame (whisper, invite, inspect, trade, and so on). The key still does its usual job for
 -- everything else, and the listener never swallows the key.
 ----------------------------------------------------------------------
-local function openTargetMenu()
-    if not UnitExists("target") then return end
-    local okP, isP = pcall(UnitIsPlayer, "target")
-    if not okP or (issecretvalue and issecretvalue(isP)) or not isP then return end
-    local which = "PLAYER"
-    local okS, same = pcall(UnitIsUnit, "target", "player")
-    if okS and same == true then which = "SELF"
-    elseif UnitInParty and UnitInParty("target") then which = "PARTY" end
-    local name, realm = UnitName("target")
-    local ctx = { unit = "target", name = name, server = realm }
-    if UnitPopup_OpenMenu then
-        pcall(UnitPopup_OpenMenu, which, ctx)
-    elseif UnitPopup_ShowMenu and TargetFrame then
-        pcall(UnitPopup_ShowMenu, TargetFrame, which, "target", name)
-    end
-end
-
 -- While a player is your target, the interact key is pointed at a hidden button that opens the menu
 -- (an override binding, the same way the game lets addons remap a key). Any other target, or none, and the
 -- key goes back to interacting as usual. Bindings can't change in combat, so the switch waits for it to end.
 local function buildTargetMenuKey()
     local owner = CreateFrame("Frame", "UbermocTargetMenuOwner", UIParent)
-    local btn = CreateFrame("Button", "UbermocTargetMenuBtn", UIParent)
+    -- A secure button: the game opens the unit menu itself ("togglemenu"), so its entries (Set Focus and the like) are not
+    -- blocked. Opening the menu from ordinary addon code is what made the game refuse Set Focus.
+    local btn = CreateFrame("Button", "UbermocTargetMenuBtn", UIParent, "SecureActionButtonTemplate")
+    btn:SetAttribute("type", "togglemenu")
+    btn:SetAttribute("unit", "target")
     btn:RegisterForClicks("AnyUp")
-    btn:SetScript("OnClick", function()
-        if not UnitExists("target") then return end
-        if TargetFrame_OpenMenu and TargetFrame then
-            local ok = pcall(TargetFrame_OpenMenu, TargetFrame)   -- the game's own target-frame right-click menu
-            if not ok then openTargetMenu() end
-        else
-            openTargetMenu()
-        end
+    btn:HookScript("PostClick", function()
         -- the menu is built a moment later: put the pointer on its first entry
         for _, t in ipairs({ 0.1, 0.35 }) do
             C_Timer.After(t, function() if API.cursorToMenu then pcall(API.cursorToMenu) end end)

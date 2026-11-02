@@ -710,6 +710,11 @@ local function build()
     art:SetPoint("TOPLEFT", artX, artY)
     local PILL_W, PILL_H = 118, 34
     local dots, pills = {}, {}
+    -- The dots, labels and lines are made later (the first time the page shows). They live in one box, made now, so the
+    -- tabs can hide them together with the Layout tab.
+    local stageBox = CreateFrame("Frame", nil, sc)
+    stageBox:SetPoint("TOPLEFT", sc, "TOPLEFT", 0, 0)
+    stageBox:SetSize(560, 40)
     -- The triggers sit behind the shoulder buttons, so the pictures get a bump drawn above each one.
     local trigTex = {}
     for i = 1, 2 do
@@ -721,7 +726,7 @@ local function build()
     local function getDot(key)
         local d = dots[key]
         if d then return d end
-        d = CreateFrame("Button", nil, sc)
+        d = CreateFrame("Button", nil, stageBox)
         d:SetSize(22, 22)
         d:SetFrameLevel(sc:GetFrameLevel() + 6)
         d.halo = d:CreateTexture(nil, "BACKGROUND")
@@ -751,7 +756,7 @@ local function build()
     local function getPill(key)
         local p = pills[key]
         if p then return p end
-        p = CreateFrame("Button", nil, sc)
+        p = CreateFrame("Button", nil, stageBox)
         p:SetSize(PILL_W, PILL_H)
         API.flatButton(p)
         p.name = p:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -764,10 +769,10 @@ local function build()
         p.sel = p:CreateTexture(nil, "OVERLAY")
         p.sel:SetAllPoints()
         p.sel:SetColorTexture(API.accent[1], API.accent[2], API.accent[3], 0.28)
-        p.line = sc:CreateLine(nil, "ARTWORK")
+        p.line = stageBox:CreateLine(nil, "ARTWORK")
         p.line:SetThickness(1.5)
         p.line:SetColorTexture(0.42, 0.5, 0.7, 0.75)
-        p.line2 = sc:CreateLine(nil, "ARTWORK")
+        p.line2 = stageBox:CreateLine(nil, "ARTWORK")
         p.line2:SetThickness(1.5)
         p.line2:SetColorTexture(0.42, 0.5, 0.7, 0.75)
         p:SetScript("OnClick", function() selected = key; popOpen = true; refreshAll() end)
