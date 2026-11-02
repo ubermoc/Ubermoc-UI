@@ -1453,8 +1453,7 @@ function H.sliderShow(s, v)
 end
 
 -- Number stepper: [ - ] [ value ] [ + ]. Hold - or + to keep going (it speeds up), with the mouse or with A.
--- On a controller, D-pad left / right on the number changes it too (hold to speed up). Ranges with a few steps,
--- or 0-100, show a bar in the number box, and clicking the bar with the mouse jumps there. Wider ranges stop at
+-- The D-pad only moves the pointer; A changes the value. Ranges with a few steps, or 0-100, show a bar in the number box, and clicking the bar with the mouse jumps there. Wider ranges stop at
 -- their own ends; a mouse click on the number opens a typing field (never needed: - and + reach any value).
 local function makeSlider(parent, w, min, max, step, fmt, onChange)
     local span = max - min
@@ -1491,7 +1490,7 @@ local function makeSlider(parent, w, min, max, step, fmt, onChange)
     box:SetAllPoints(s)
     UbermocUIAPI.flatButton(box)
     s.box = box
-    box.ubNudge = s.nudge     -- the controller pointer stops on the number: D-pad left / right changes it
+    box.ubSkipCursor = true   -- the pointer uses the - and + buttons beside the number (A changes it, hold A to repeat)
     if bounded then
         local A = UbermocUIAPI.accent
         -- A thin bar along the bottom of the number: how far along the range the value is.
@@ -1896,8 +1895,8 @@ function H.skinList()
     return L
 end
 
--- Cycler: [ < ] [ name ] [ > ] 3/9 for long lists. Hold < or > to keep going; on a controller, D-pad
--- left / right on the name steps through the list; clicking the name goes to the next one.
+-- Cycler: [ < ] [ name ] [ > ] 3/9 for long lists. Hold < or > to keep going (with A on a controller);
+-- clicking the name goes to the next one.
 -- list() returns { { value, label }, ... }. Everything sits in c.frame.
 function H.cycler(parent, x, y, w, list, get, set)
     local f = CreateFrame("Frame", nil, parent)

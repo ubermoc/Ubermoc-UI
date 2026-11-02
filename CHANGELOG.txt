@@ -1,5 +1,3 @@
-UbermocUI 1.0.107
-- Interact page: the whole "Interface cursor" section (its on switch, Open automatically and Tooltips) is now on its own tab, renamed "Interface cursor". Before, half of it showed on the Interact tab.
-- Halo unit frames: the Health colour row (label, buttons and colour square) is now all on the Frame tab. Before, the label and its buttons were on different tabs.
-- Game Options: "Spell overlay strength" now sits under "Spell activation overlays" on the Targeting and combat tab, instead of on Action bars and chat.
-- An old link to the Target unit frame opened a tab that no longer exists; it now opens Target.
+UbermocUI 1.0.108
+- Controller: the D-pad only moves the pointer again. It no longer changes numbers (1.0.106 added that by mistake). Values change with A: A on -, + , < or > steps once, and holding A keeps going.
+- The pointer hint line no longer mentions changing a number with left / right.

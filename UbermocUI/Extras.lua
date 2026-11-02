@@ -2224,12 +2224,6 @@ local function move(dir, tries)
     refreshNodes()
     local cur = cursor.cur
     if not cur then return end
-    -- On a number or a list (sliders, cyclers), left / right changes the value; held, it speeds up like - and +.
-    if (dir == "LEFT" or dir == "RIGHT") and cur.ubNudge and (not cur.IsEnabled or cur:IsEnabled()) then
-        local t = cursor.heldAll or 0
-        cur.ubNudge(dir == "RIGHT" and 1 or -1, (t > 3 and 25) or (t > 1.5 and 5) or 1)
-        return
-    end
     local cl, cb, cr, ct = rectOf(cur)
     if not cl then return end
     local cx, cy = (cl + cr) / 2, (cb + ct) / 2
@@ -3164,7 +3158,6 @@ function API.pointerHintText(sep)
     local function key(k) return "|cffffd100[" .. lab(k) .. "]|r" end
     local parts = { "|cffffd100[D-pad]|r Move" }
     parts[#parts + 1] = key(bound("UBERMOCUI_CURSORCLICK", "PAD1")) .. " Click"
-    parts[#parts + 1] = "|cffffd100[Left Right]|r on a number: Change"
     parts[#parts + 1] = key(bound("UBERMOCUI_CURSORRIGHT", "PAD3")) .. " Right-click"
     parts[#parts + 1] = key(bound("UBERMOCUI_CURSORMENU", "PAD4")) .. " Menu"
     parts[#parts + 1] = key(bound("UBERMOCUI_CURSORBACK", "PAD2")) .. " Back"
@@ -3415,7 +3408,7 @@ local function buildCursor()
             cursor.heldT = (cursor.heldT or 0) + dt
             cursor.heldAll = (cursor.heldAll or 0) + dt
             local cn = cursor.cur
-            local every = cursor.grab and 0.05 or ((cursor.held == "LEFT" or cursor.held == "RIGHT") and cn and cn.ubNudge and 0.1) or 0.12
+            local every = cursor.grab and 0.05 or 0.12
             if cursor.heldT >= every and not cursor.scrollPending then
                 cursor.heldT = 0
                 if cursor.grab then nudgeGrab(cursor.held) else move(cursor.held) end
