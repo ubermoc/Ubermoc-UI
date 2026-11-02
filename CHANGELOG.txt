@@ -1,7 +1,5 @@
-UbermocUI 1.0.109
-- New Aiming page under Controller (it was a tab at the end of Miscellaneous).
-- Buttons page: now three tabs, Layout, Binds by bar and More, instead of one very long page.
-- Radial Menus: new "All rings" tab holding the settings that apply to every ring (round buttons, how long the stick stays locked after using an entry).
-- Minimap page: the Ubermoc UI minimap button switch is now on the Addon Buttons tab.
-- Miscellaneous: "Hide tutorial pop-ups" moved to the General tab, and the one-option Controller tab is gone. HDR is now the fourth tab (/hdr still opens it).
-- Text only: the controller options no longer name another addon.
+UbermocUI 1.0.110
+- HDR is removed completely (the page, the /hdr command and its entry in the game's settings), because it did not work. Any game setting you had changed through it stays as it is.
+- NPC Dialogue has a new "Button prompts" tab with "Show controller button hints in quest and gossip windows" and "Switch the dialogue add-on to controller button prompts" (moved from the Buttons page).
+- Interact, Interface cursor tab: "Right stick moves the mouse when a menu is open" (moved from the Buttons page).
+- Buttons page: the More tab now only holds the reset and details buttons.

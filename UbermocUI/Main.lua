@@ -3305,7 +3305,7 @@ local function buildMiscPanel()
     local tipsCB = newCheck(sc, "Hide tutorial pop-ups", 16, -86, function(v) UbermocUIDB.hideTips = v end)
     note("WoW's little tip boxes only close with a click on their X. This hides them as they show.", -116)
 
-    local vendorRefresh, lootCB, fastCB, hdrRefresh
+    local vendorRefresh, lootCB, fastCB
     refreshMisc = function()
         tipCB:SetChecked(UbermocUIDB.tooltipAtCursor and true or false)
         local okL, al = pcall(GetCVar, "autoLootDefault")
@@ -3313,7 +3313,6 @@ local function buildMiscPanel()
         if fastCB then fastCB:SetChecked(UbermocUIDB.fastLoot ~= false) end
         if tipsCB then tipsCB:SetChecked(UbermocUIDB.hideTips ~= false) end
         if vendorRefresh then vendorRefresh() end
-        if hdrRefresh then hdrRefresh() end
     end
 
     newLabel(sc, "Vendors", 16, -162, "GameFontNormalLarge")
@@ -3369,9 +3368,8 @@ local function buildMiscPanel()
     end)
     note("Wipes every Ubermoc UI setting on this account and reloads, so everything starts again from the defaults (the same as a fresh install). Key and controller binds go back to their defaults too (the addon fills its controller binds in again); WoW's other settings are left as they are.", -666)
 
-    if UbermocUIAPI.buildHDR then hdrRefresh = UbermocUIAPI.buildHDR(sc, -730) end
 
-    UbermocUIAPI.miscSelectTab = UbermocUIAPI.makeTabs(miscPanel, scroll, sc, { { "General", 0 }, { "Vendors", -152 }, { "Everything at once", -484 }, { "HDR", -720 } })
+    UbermocUIAPI.miscSelectTab = UbermocUIAPI.makeTabs(miscPanel, scroll, sc, { { "General", 0 }, { "Vendors", -152 }, { "Everything at once", -484 } })
     attachReload(miscPanel)
     miscPanel:Hide()
     miscPanel:SetScript("OnShow", function() refreshMisc(); evaluate() end)

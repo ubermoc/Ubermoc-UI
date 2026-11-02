@@ -960,25 +960,7 @@ local function build()
     end)
     local rn = API.newLabel(sc, "This puts every key and button bind (keyboard too) back to the ones the game ships with, starting with the main action bar.", 8, ry - 34, "GameFontHighlightSmall")
     rn:SetWidth(540); rn:SetJustifyH("LEFT"); rn:SetWordWrap(true)
-    local hintCB = API.newCheck(sc, "Show controller button hints in quest and gossip windows", 8, ry - 78, function(v)
-        DB().hints = v
-        if API.refreshPadHints then API.refreshPadHints() end
-    end)
-    local hn = API.newLabel(sc, "For quest window addons that show their controller hints on a bar at the bottom of the screen: the bar is drawn here, with this controller's button names.", 40, ry - 108, "GameFontHighlightSmall")
-    hn:SetWidth(500); hn:SetJustifyH("LEFT"); hn:SetWordWrap(true)
-    local duiCB = API.newCheck(sc, "Switch the dialogue add-on to controller button prompts", 8, ry - 146, function(v)
-        DB().dui = v
-        if v and API.syncDialogueUI then API.syncDialogueUI(true) end
-    end)
-    local dn = API.newLabel(sc, "When a controller is connected and your dialogue add-on is set to keyboard and mouse, its input setting is switched to match this controller. A reload finishes the switch.", 40, ry - 176, "GameFontHighlightSmall")
-    dn:SetWidth(500); dn:SetJustifyH("LEFT"); dn:SetWordWrap(true)
-    local curCB = API.newCheck(sc, "Right stick moves the mouse when a menu is open", 8, ry - 220, function(v)
-        DB().cursor = v
-        applyCursor(v)
-    end)
-    local cn = API.newLabel(sc, "Uses the game's own gamepad cursor, so the pointer shows up when a window or this menu opens. The D-pad still moves between parts one at a time.", 40, ry - 250, "GameFontHighlightSmall")
-    cn:SetWidth(500); cn:SetJustifyH("LEFT"); cn:SetWordWrap(true)
-    sc:SetHeight(-(ry - 300) + 8)
+    sc:SetHeight(-(ry - 60) + 8)
     API.makeTabs(panel, scroll, sc, { { "Layout", 0 }, { "Binds by bar", by + 8 }, { "More", ry + 10 } }, -52)
 
     -- Press-a-button dialog -------------------------------------------------------------------------
@@ -1557,9 +1539,6 @@ local function build()
         found:SetText("Controller: " .. dev)
         layoutBtn.refresh()
         autoCB:SetChecked(d.auto and true or false)
-        hintCB:SetChecked(d.hints ~= false)
-        duiCB:SetChecked(d.dui ~= false)
-        curCB:SetChecked(d.cursor ~= false)
         tip:SetShown(setId == "steam" and not hasPaddles)
 
         layoutStage(setId)
@@ -1637,6 +1616,33 @@ end
 API.addPage("controller", "Buttons", panel)
 
 ----------------------------------------------------------------------
+-- Three controller options that live on other pages (NPC Dialogue, Interact). Each call puts the check box and its note
+-- into `parent` at x, y and returns the check box (call :refreshOption() when the page shows) and the y below it.
+function API.padOption(kind, parent, x, y, width)
+    local text, note, get, set
+    if kind == "hints" then
+        text = "Show controller button hints in quest and gossip windows"
+        note = "For quest window addons that show their hints on a bar at the bottom of the screen: the bar is drawn here, with your controller's button names."
+        get = function() return DB().hints ~= false end
+        set = function(v) DB().hints = v; if API.refreshPadHints then API.refreshPadHints() end end
+    elseif kind == "dui" then
+        text = "Switch the dialogue add-on to controller button prompts"
+        note = "When a controller is connected and your dialogue add-on is set to keyboard and mouse, its input setting is switched to match this controller. A reload finishes the switch."
+        get = function() return DB().dui ~= false end
+        set = function(v) DB().dui = v; if v and API.syncDialogueUI then API.syncDialogueUI(true) end end
+    else
+        text = "Right stick moves the mouse when a menu is open"
+        note = "Uses the game's own gamepad cursor, so the pointer shows up when a window opens. The D-pad still moves between parts one at a time."
+        get = function() return DB().cursor ~= false end
+        set = function(v) DB().cursor = v; applyCursor(v) end
+    end
+    local cb = API.newCheck(parent, text, x, y, set)
+    local nl = API.newLabel(parent, note, x + 32, y - 30, "GameFontHighlightSmall")
+    nl:SetWidth(width or 500); nl:SetJustifyH("LEFT"); nl:SetWordWrap(true)
+    cb.refreshOption = function(self) self:SetChecked(get()) end
+    return cb, y - 84
+end
+
 -- Controller hints for quest and gossip window addons. Some of them only draw their button hints
 -- through a full controller addon's hint bar; this draws an equivalent bar from the same calls.
 ----------------------------------------------------------------------

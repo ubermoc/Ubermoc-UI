@@ -1262,16 +1262,26 @@ local function buildPage()
     API.newLabel(p, "Nudge", 40, -668)
     local nudge = API.nudgePad(p, 200, -664, function() local d = DB(); return d.nx or 0, d.ny or 0 end,
         function(nx, ny) local d = DB(); d.nx, d.ny = nx, ny; moved() end)
-    -- Second tab: the cinematic camera (Cinematic.lua).
+    -- Second tab: which button names the dialogue shows (the options live in Controller.lua).
+    local promptCBs = {}
+    if API.padOption then
+        API.newLabel(p, "Button prompts", 8, -728, "GameFontNormalLarge")
+        local cb, ny = API.padOption("hints", p, 16, -764)
+        promptCBs[#promptCBs + 1] = cb
+        cb = API.padOption("dui", p, 16, ny - 4)
+        promptCBs[#promptCBs + 1] = cb
+    end
+    -- Third tab: the cinematic camera (Cinematic.lua).
     local cineRefresh
     if API.cineSettings then
         local bottom
-        bottom, cineRefresh = API.cineSettings(p, -720)
+        bottom, cineRefresh = API.cineSettings(p, -900)
         p:SetHeight(-bottom + 20)
-        API.makeTabs(panel, scroll, p, { { "Window", 0 }, { "Cinematic camera", -720 } })
+        API.makeTabs(panel, scroll, p, { { "Window", 0 }, { "Button prompts", -720 }, { "Cinematic camera", -890 } })
     end
     panel:SetScript("OnShow", function()
         if cineRefresh then cineRefresh() end
+        for _, cb in ipairs(promptCBs) do cb:refreshOption() end
         placeRow.refresh(); if nudge.refresh then nudge.refresh() end
         local d = DB()
         onCB:SetChecked(d.on); themeBtn.refresh()

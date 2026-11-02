@@ -8,12 +8,11 @@
 ## Author: Marcos
 ## X-Copyright: Copyright (c) 2026 Marcos. All rights reserved.
 ## X-License: All Rights Reserved
-## Version: 1.0.109
+## Version: 1.0.110
 ## X-Curse-Project-ID: 1745809
 ## SavedVariables: UbermocUIDB
 
 Main.lua
-HDR.lua
 Aim.lua
 Skin.lua
 Extras.lua
