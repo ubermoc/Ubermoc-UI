@@ -3348,7 +3348,7 @@ local function buildMiscPanel()
         UbermocUIAPI.enableEverything()
         ReloadUI()
     end)
-    note("Turns on every halo frame (player, pet, target, target of target, focus, party and raid), the clean minimap layout, name-only nameplates with their icons, debuffs, kill indicator, target arrows and threat circles, the radial menus and the interface cursor, the vendor helpers and the tooltip at the cursor, then reloads. WoW's own frames that a halo frame replaces are hidden. Chat fading stays as it is.", -562)
+    note("Turns on every halo frame, the clean minimap, name-only nameplates and their icons, the radial menus, the interface cursor, the vendor helpers and the cursor tooltip, then reloads. Chat fading stays as it is.", -562)
     local resetAll
     resetAll = newButton(sc, "Reset everything to defaults", 280, 16, -630, function()
         if not resetAll.armed then
@@ -3366,7 +3366,7 @@ local function buildMiscPanel()
         UbermocUIDB.wipeOnReload = true
         ReloadUI()
     end)
-    note("Wipes every Ubermoc UI setting on this account and reloads, so everything starts again from the defaults (the same as a fresh install). Key and controller binds go back to their defaults too (the addon fills its controller binds in again); WoW's other settings are left as they are.", -666)
+    note("Wipes every Ubermoc UI setting and reloads, like a fresh install. Key and controller binds go back to their defaults too. WoW's other settings are left alone.", -666)
 
 
     UbermocUIAPI.miscSelectTab = UbermocUIAPI.makeTabs(miscPanel, scroll, sc, { { "General", 0 }, { "Vendors", -152 }, { "Everything at once", -484 } })
@@ -3712,7 +3712,7 @@ local function buildNameplatePanel()
         refreshPreview()
     end)
     heightSl:SetPoint("TOPLEFT", 240, y1 - 76)
-    local sizeNote = newLabel(restBox, "Sets how wide and tall the nameplates are, for the group selected at the top. It resizes the health bar of those nameplates; names and icons keep their size. It is applied outside of combat, so a change made in a fight waits until it ends.", 8, y1 - 112, "GameFontHighlightSmall")
+    local sizeNote = newLabel(restBox, "Sets how wide and tall the nameplates are for the group selected above. Names and icons keep their size. Changes made in a fight apply when it ends.", 8, y1 - 112, "GameFontHighlightSmall")
     sizeNote:SetWidth(530); sizeNote:SetJustifyH("LEFT"); sizeNote:SetWordWrap(true)
     newButton(restBox, "Reset size to default", 180, 8, y1 - 164, function()
         npDB()[group].width, npDB()[group].height = (group == "enemy") and 260 or 150, 11
@@ -3789,7 +3789,7 @@ local function buildNameplatePanel()
     newButton(restBox, "Outline: set on the Textures page", 260, 40, y2 - 628, function()
         if UbermocUIAPI.openTextures then UbermocUIAPI.openTextures("nameplates") end
     end)
-    newLabel(restBox, "The cast bar sits under the health bar (or the name in name-only mode); these move and size it from there. With the width on same as bar, the cast bar follows the bar's width. The outline replaces the game's thin border.", 40, y2 - 668, "GameFontDisableSmall"):SetWidth(500)
+    newLabel(restBox, "The cast bar sits under the health bar and these move and size it from there. The outline replaces the game's thin border.", 40, y2 - 668, "GameFontDisableSmall"):SetWidth(500)
 
     -- Name-only mode (both enemy and friendly nameplates)
     local y3 = y2 - 740
@@ -3890,7 +3890,7 @@ local function buildNameplatePanel()
         friendOnly[#friendOnly + 1] = tl; friendOnly[#friendOnly + 1] = tb.frame
         friendOnly[#friendOnly + 1] = cl; friendOnly[#friendOnly + 1] = cb
     end
-    local nameNote = newLabel(restBox, "Hides the health bar and shows just the name, coloured by class (players) or by WoW's own name colour (everything else), with the health percent beside it. The level square is drawn by the addon; its number is coloured by how hard the unit is for you unless you pick a colour. The width sets the cast bar width and the height sets the cast bar height here, since there is no health bar.", 8, y3 - 754, "GameFontHighlightSmall")
+    local nameNote = newLabel(restBox, "Hides the health bar and shows just the name, coloured by class (players) or WoW's own colour, with the health percent beside it. Width and height here size the cast bar, since there is no health bar.", 8, y3 - 754, "GameFontHighlightSmall")
     nameNote:SetWidth(530); nameNote:SetJustifyH("LEFT"); nameNote:SetWordWrap(true)
     friendOnly[#friendOnly + 1] = nameNote
 
@@ -4123,7 +4123,7 @@ local function buildChatPanel()
         evaluate()
     end)
     alphaSl:SetPoint("TOPLEFT", 240, -362)
-    local revNote = newLabel(pm, "This is a fade in and out timer for the whole chat: when anything is said, the chat window and tabs fade up to the opacity above, then fade back to your Fade settings after the time runs out. Elements you hid with Always hide stay hidden.", 16, -398, "GameFontHighlightSmall")
+    local revNote = newLabel(pm, "When anything is said, the chat window and tabs fade up to the opacity above, then back to your Fade settings after the time. Elements set to Always hide stay hidden.", 16, -398, "GameFontHighlightSmall")
     revNote:SetWidth(540); revNote:SetJustifyH("LEFT"); revNote:SetWordWrap(true)
 
     refreshChat = function()
@@ -4183,7 +4183,7 @@ local function buildTimingPanel()
         evaluate()
     end)
     delaySl:SetPoint("TOPLEFT", 200, -178)
-    local note = newLabel(timingPanel, "Fade in is how long an element takes to come back, for example when combat starts. Fade out is how long it takes to fade away. The wait makes an element stay visible for a few seconds after its situation ends, such as after combat, before it starts to fade.", 16, -226, "GameFontHighlightSmall")
+    local note = newLabel(timingPanel, "Fade in: how long an element takes to come back. Fade out: how long it takes to fade away. Wait: how long it stays visible after its situation ends.", 16, -226, "GameFontHighlightSmall")
     note:SetWidth(540); note:SetJustifyH("LEFT"); note:SetWordWrap(true)
 
     timingPanel:Hide()
@@ -7502,7 +7502,7 @@ do
         slider("boxCols", "Buttons per row", 1, 8, "box", "cols")
         slider("boxX", "Left / right", -500, 500, "box", "x")
         slider("boxY", "Up / down", -500, 500, "box", "y")
-        note("Inside the map the Left / right and Up / down numbers nudge it from its corner spot (positive is right and up); the starting nudge is -2 across. Click the container button and your addon buttons fly out of it; they close when the mouse leaves. Addons that add their button late are picked up when you open it. Turn this off to put every button back.", 3)
+        note("Inside the map, Left / right and Up / down nudge it from its corner. Click the container button to fly your addon buttons out; they close when the mouse leaves. Turn this off to put every button back.", 3)
 
         -- Info bar --------------------------------------------------------------------------------
         y = y - 16

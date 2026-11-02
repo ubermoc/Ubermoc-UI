@@ -1,5 +1,2 @@
-UbermocUI 1.0.110
-- HDR is removed completely (the page, the /hdr command and its entry in the game's settings), because it did not work. Any game setting you had changed through it stays as it is.
-- NPC Dialogue has a new "Button prompts" tab with "Show controller button hints in quest and gossip windows" and "Switch the dialogue add-on to controller button prompts" (moved from the Buttons page).
-- Interact, Interface cursor tab: "Right stick moves the mouse when a menu is open" (moved from the Buttons page).
-- Buttons page: the More tab now only holds the reset and details buttons.
+UbermocUI 1.0.111
+- Text only: 26 of the longest explanations in the settings are now short, plain sentences (Aiming, Interact, NPC Dialogue, nameplates, chat fading, halo frames, party and raid frames, textures, menu bar, action bars, the button test and more). Nothing else changes.

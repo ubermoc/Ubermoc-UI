@@ -515,7 +515,7 @@ local function buildPage()
     end)
     local note = API.newLabel(p, "", 8, -980, "GameFontHighlightSmall")
     note:SetWidth(700); note:SetJustifyH("LEFT"); note:SetWordWrap(true)
-    note:SetText("Use these settings for all copies this part's texture and strength to every textured part. The border colour button copies this tab's first border colour and opacity to every border in Ubermoc UI. Class colour follows the character you are playing.")
+    note:SetText("Use these settings for all copies this part's texture and strength to every textured part. The border colour button does the same for every border. Class colour follows your character.")
 
     -- Stack what this tab shows, top to bottom.
     local function place(f, y)

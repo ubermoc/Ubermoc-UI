@@ -784,7 +784,7 @@ local function buildPage()
     local lookNote = API.newLabel(panel, "Angled plates, wide side against the screen edge. Set the background opacity to 0% to show only the buttons. The plates' texture, edge line and button borders are set on the Textures page.", RX, -262, "GameFontHighlightSmall")
     lookNote:SetWidth(290); lookNote:SetJustifyH("LEFT"); lookNote:SetWordWrap(true)
     API.newButton(panel, "Show it now", 160, 16, y - 4, function() if DB().on then open("key") end end)
-    local note = API.newLabel(panel, "With a controller: bind \"Open / close the menu bar\" (Ubermoc UI section of the game's key bindings, or on the Buttons page) to open it without the mouse; then use the interface pointer to pick a button. While you are in a vehicle or a pet battle the game borrows the menu buttons for its own bar.", 16, -486, "GameFontHighlightSmall")
+    local note = API.newLabel(panel, "With a controller, bind \"Open / close the menu bar\" (game key bindings, or the Buttons page), then pick a button with the interface pointer. In a vehicle or pet battle the game borrows the menu buttons.", 16, -486, "GameFontHighlightSmall")
     note:SetWidth(660); note:SetJustifyH("LEFT"); note:SetWordWrap(true)
 
     function panel.refresh()

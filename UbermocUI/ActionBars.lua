@@ -1204,7 +1204,7 @@ local function buildPage()
     local targetCB = API.newCheck(p, "Targeting binds (target, assist, focus)", 16, BY - 108, setter("showTarget"))
     local uiCB = API.newCheck(p, "Interface binds (map, bags, menus, the interface cursor)", 16, BY - 140, setter("showUI"))
     local moveCB = API.newCheck(p, "Movement and camera binds", 16, BY - 172, setter("showMove"))
-    local dn = API.newLabel(p, "With a mouse: drag a bind from one slot to another and the two buttons swap (the Buttons page shows the change). Drop a spell, item or macro on an empty slot and it is put on a free action button bound to that controller button. Not in combat.", 16, BY - 212, "GameFontHighlightSmall")
+    local dn = API.newLabel(p, "Drag a bind from one slot to another to swap them. Drop a spell, item or macro on an empty slot to put it on a free button bound to that controller button. Not in combat.", 16, BY - 212, "GameFontHighlightSmall")
     dn:SetWidth(560); dn:SetJustifyH("LEFT"); dn:SetWordWrap(true)
 
     -- Cooldown numbers ----------------------------------------------------------------------------

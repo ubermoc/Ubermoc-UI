@@ -1163,7 +1163,7 @@ local function buildPage()
     p:SetSize(640, 640)
     scroll:SetScrollChild(p)
     API.newLabel(p, "NPC Dialogue", 16, -14, "GameFontNormalHuge")
-    local intro = API.newLabel(p, "One clean window for talking to NPCs: gossip, quests, quest hand-ins and rewards. Space or Enter accepts, Escape declines, arrow keys (or the D-pad) choose, and the buttons show your controller's own names. When a quest offers a choice of rewards, pick one with left / right, press the compare button to see what you wear, and the reward that sells to a vendor for the most carries a small gold coin.", 16, -48, "GameFontHighlightSmall")
+    local intro = API.newLabel(p, "One clean window for NPC talk: gossip, quests, hand-ins and rewards. Space or Enter accepts, Escape declines, arrow keys or the D-pad choose. With reward choices, left / right picks and the compare button shows what you wear.", 16, -48, "GameFontHighlightSmall")
     intro:SetWidth(580); intro:SetJustifyH("LEFT"); intro:SetWordWrap(true)
     local onCB = API.newCheck(p, "Use this window instead of the game's quest and gossip windows", 16, -150, function(v)
         DB().on = v

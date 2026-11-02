@@ -407,7 +407,7 @@ function API.buildAim(sc, y0)
     refreshers[#refreshers + 1] = function() holdCB:SetChecked(DB().hold and true or false) end
     y = y - 32
     note(hasHeld()
-        and "For Heroic Leap, Blizzard and other spells you place on the ground: hold the button to aim, let go to cast where the pointer is. Works for spells on the action bars; more than thirty are built in, and a missing one is learned the first time its button opens a reticle (or add it with /ubground add Spell Name). It needs the game's cast-on-press setting, which is switched on together with it."
+        and "Hold the button to aim a ground spell, let go to cast where the pointer is. A missing spell is learned when its button opens a reticle, or add one with /ubground add Name."
         or "This game does not have the Press and Hold Casting setting, so there is nothing to switch on here.", 48, y)
     y = y - 70
 
@@ -417,7 +417,7 @@ function API.buildAim(sc, y0)
     end)
     refreshers[#refreshers + 1] = function() centerCB:SetChecked(DB().center and true or false) end
     y = y - 32
-    note("The game normally hands the aim to the sticks while a ground spell waits for a spot (its setting GamePadCursorForTargeting). With this on that is switched off, so the spell lands where the pointer rests in the middle of the screen, which is where the mark is. Your old setting is put back when you turn this off.", 48, y)
+    note("While a ground spell waits for a spot, the game hands the aim to the sticks. With this on, the spell lands where the pointer rests in the middle instead. Turning it off restores your old setting.", 48, y)
     y = y - 70
 
     API.newLabel(sc, "Aim height", 48, y - 4)
@@ -484,7 +484,7 @@ function API.buildAim(sc, y0)
         changed(); refresh()
     end)
     y = y - 40
-    note("The mark shows only while a ground spell is being aimed. The spell lands where the mouse pointer is. The mark sits where the game keeps the centered pointer while you steer the camera with the controller; Left / right and Up / down move it from there. Choose Always to see it whenever the controller steers the camera. Type /ubaim to see what the mark sees.", 16, y)
+    note("The mark sits where the game keeps the centered pointer while you steer the camera. Left / right and Up / down move it from there. /ubaim shows what the mark sees.", 16, y)
     refresh()
     return refresh
 end

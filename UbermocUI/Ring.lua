@@ -986,7 +986,7 @@ local function buildPage(c)
     scroll:SetScrollChild(p)
     API.newLabel(p, c.label, 16, -14, "GameFontNormalHuge")
     local intro = API.newLabel(p, c.unit == "player"
-        and "A round player frame. The middle disc is your health: full at full health, draining as you lose it, with the health percentage, current health and maximum health written inside (each can be switched on or off). Your resource sits in a ring around it and cast progress on the outside. Fade it from Fading > Rules > Player Halo Frame (Ubermoc UI). Pet-style frame: your picture in a circle, mana as the left half of the ring, health as the right half, percentages and current amounts underneath (the picture can be your class icon, and its border class coloured)."
+        and "A round player frame. The middle disc is your health, with the percentage, current and maximum health inside (each can be switched off). Resource sits in a ring around it, cast progress outside. Fade it from Fading > Rules > Player Halo Frame (Ubermoc UI). Pet-style: your picture in a circle, mana on the left half of the ring, health on the right, numbers underneath."
         or ("A round frame for your " .. c.what .. ", built like the player frame: health in the middle disc with its text, resource in a ring around it, cast progress outside. It shows while you have a " .. c.what .. ". Fade it from Fading > Rules > " .. c.label .. " (Ubermoc UI). Pet-style frame: its picture in a circle, resource as the left half of the ring, health as the right half, amounts underneath."), 16, -48, "GameFontHighlightSmall")
     intro:SetWidth(570); intro:SetJustifyH("LEFT"); intro:SetWordWrap(true)
 
@@ -1181,7 +1181,7 @@ local function buildPage(c)
         hTY:SetPoint("TOPLEFT", 260, ty0 - 80)
         API.sliderDefault(hTY, 0)
         local noteY = ty0 - 122
-        local hn = API.newLabel(p, acUnit and ("The icons are the game's own aura display for the " .. c.what .. ", so timers and tooltips work as usual. Buffs and debuffs on the same side share it, debuffs beyond the buffs.") or (key == "player" and "The icons are the game's own, so their timers, tooltips and right-click to cancel work as usual." or "The icons are the game's own " .. c.what .. " frame icons, so their timers and tooltips work as usual.") .. " When an arc is full the next icons start a second arc further out; buffs and debuffs on the same side share it, debuffs after buffs. They go back to their usual place when this is off, the halo frame is off, or the layout editor is open.", 16, noteY, "GameFontHighlightSmall")
+        local hn = API.newLabel(p, acUnit and ("The icons are the game's own aura display for the " .. c.what .. ", so timers and tooltips work as usual. Buffs and debuffs on the same side share it, debuffs beyond the buffs.") or (key == "player" and "The icons are the game's own, so their timers, tooltips and right-click to cancel work as usual." or "The icons are the game's own " .. c.what .. " frame icons, so their timers and tooltips work as usual.") .. " When an arc is full, the next icons start a second arc further out. Everything goes back to normal when this is off, the halo frame is off, or the layout editor is open.", 16, noteY, "GameFontHighlightSmall")
         hn:SetWidth(570); hn:SetJustifyH("LEFT"); hn:SetWordWrap(true)
         local pickRefresh
         if not acUnit then
@@ -1251,7 +1251,7 @@ local function buildPetPage(c)
         sliders[key] = s
     end
     API.newLabel(p, "Pet Halo Frame", 16, -14, "GameFontNormalHuge")
-    local pnote = API.newLabel(p, "The pet's picture in a circle. The left half of the ring is the pet's resource and the right half its health, filling from the bottom and meeting at the top, with both percentages underneath. It shows while you have a pet. Fade it from Fading > Rules > Pet Halo Frame (Ubermoc UI).", 16, -48, "GameFontHighlightSmall")
+    local pnote = API.newLabel(p, "The pet's picture in a circle: resource on the left half of the ring, health on the right, both percentages underneath. It shows while you have a pet. Fade it from Fading > Rules > Pet Halo Frame (Ubermoc UI).", 16, -48, "GameFontHighlightSmall")
     pnote:SetWidth(570); pnote:SetJustifyH("LEFT"); pnote:SetWordWrap(true)
     checks.pon = API.newCheck(p, "Show the pet halo frame", 16, -106, function(v)
         D.pon = v

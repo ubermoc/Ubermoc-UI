@@ -1840,7 +1840,7 @@ do
         title:SetText("Button test")
         local help = T:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         help:SetPoint("TOPLEFT", 14, -38); help:SetWidth(530); help:SetJustifyH("LEFT")
-        help:SetText("Press any button, alone or while holding a modifier. Each press shows what the game received and what it is bound to. Nothing is used while this is open. It closes by itself after 15 seconds without a press.")
+        help:SetText("Press any button, alone or with a modifier, to see what the game received and what it is bound to. It closes after 15 seconds without a press.")
         T.lines = {}
         for i = 1, 8 do
             local fs = T:CreateFontString(nil, "OVERLAY", "GameFontHighlight")

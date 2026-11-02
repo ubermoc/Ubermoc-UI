@@ -799,10 +799,10 @@ Group({ key = "party", page = "party", label = "Party Halo Frames", what = "part
     -- in a raid with the raid frames on, the raid frames take over
     yield = function() return IsInRaid and IsInRaid() and UbermocUIDB.raid and UbermocUIDB.raid.on end,
     driverPrefix = function() return (UbermocUIDB.raid and UbermocUIDB.raid.on) and "[group:raid] hide; " or "" end,
-    intro = "A round frame for each party member: a health disc (class colour, your own colour or red to green) with the health numbers inside, the resource in a ring around it, cast progress on a thin outer ring, a role badge on top and the spec icon above the percentage. Left-click targets, right-click opens the menu. In a raid the raid frames take over while they are on. Fade it from Fading > Rules > Party Halo Frames (Ubermoc UI)." })
+    intro = "A round frame for each party member: health disc, resource ring, cast ring, role badge and spec icon. Left-click targets, right-click opens the menu. In a raid the raid frames take over. Fade it from Fading > Rules > Party Halo Frames (Ubermoc UI)." })
 
 Group({ key = "raid", page = "raid", label = "Raid Halo Frames", what = "raid", prefix = "raid", max = 40, per = 5,
     click = "UbermocRaidClick", hud = "UbermocRaidHUD", mover = "Raid halo frames", previewCount = 20,
     defaults = { on = true, size = 28, thick = 4, gap = 2, spacing = 6, x = -670, y = 330, showName = false, showSpec = false,
                  tsize = 10, nsize = 10, horizontal = true },
-    intro = "The same round frames for the whole raid, five to a row (one row per raid group). Each shows health, resource, casts and the role badge; names and spec icons are off by default to keep them small. Left-click targets, right-click opens the menu. Hide WoW's own raid frames from Fading > Rules > Party / raid frames (Always hide), and fade these from Fading > Rules > Raid Halo Frames (Ubermoc UI)." })
+    intro = "The same round frames for the whole raid, five to a row. Names and spec icons are off by default. Left-click targets, right-click opens the menu. Fade them from Fading > Rules > Raid Halo Frames (Ubermoc UI); hide WoW's raid frames there with Always hide." })

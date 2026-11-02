@@ -1794,7 +1794,7 @@ local function lookSections(S, unit)
     if unit == "player" or unit == "target" then
         S.gap()
         S.head("Class resource (every frame)")
-        S.note("Combo points (rogue, druid) on your target's frame, and holy power, soul shards, chi, arcane charges, essence or runes on your player frame. The row sits under the bars, and the cast bar and auras move down to make room.")
+        S.note("Combo points (rogue, druid) on your target's frame; holy power, soul shards, chi, arcane charges, essence or runes on your player frame. The cast bar and auras move down to make room.")
         S.check("Show the class resource", "resOn")
         S.seg("Combo points on", "resCombo", { { "target", "Target frame", 100 }, { "player", "Player frame", 100 }, { "both", "Both", 60 } })
         S.seg("Shape", "resShape", { { "dots", "Dots", 70 }, { "segments", "Segments", 90 } })
@@ -1875,7 +1875,7 @@ local function floatSheet(parent, unit)
     local names = { player = "your player frame", pet = "your pet frame", target = "your target", targettarget = "your target's target",
                     focus = "your focus", focustarget = "your focus's target", party = "your party members", raid = "your raid" }
     if head then
-        S.note("A small frame that hangs over " .. names[unit] .. " and moves with them. It rides on their nameplate (which it hides), so the unit needs a nameplate; friendly units need friendly nameplates switched on in the game. The design (bars, text, cast bar, auras) is set below, for this frame only.")
+        S.note("A small frame that hangs over " .. names[unit] .. " and moves with them. It rides on their nameplate, so the unit needs one (friendly units need friendly nameplates on in the game). Design is set below, for this frame only.")
         S.slider("Size", ({ target = "sTarget", targettarget = "sToT", focus = "sFocus", focustarget = "sFoT" })[unit], 40, 250, pct)
     elseif unit == "player" then
         S.note("Your own frame, in one place on the screen. The design (bars, text, cast bar, auras) is set below, for this frame only.")
@@ -1888,7 +1888,7 @@ local function floatSheet(parent, unit)
         S.slider("Left / right", "petX", -1200, 1200, px)
         S.slider("Up / down", "petY", -700, 700, px)
     elseif unit == "party" then
-        S.note("One frame per party member, stacked in one place on the screen. Left-click targets, right-click opens the menu. In a raid they step aside for the raid frames. Their design (bars, text, cast bar, auras) is set below.")
+        S.note("One frame per party member, stacked in one place. Left-click targets, right-click opens the menu. In a raid they step aside for the raid frames. Design is set below.")
         S.check("Role icon on each member", "partyRole")
         S.check("Preview the frames while you are not in a group", "partyPreview")
         S.slider("Size", "sParty", 40, 250, pct)
