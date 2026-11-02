@@ -573,7 +573,7 @@ function API.cineSettings(p, y0)
     slider("Ease in / out time", "fade", 0.1, 5, 0.1, sec, DEFAULTS.fade)
     check("Also when mounted", "mounted")
 
-    head("Immersion")
+    head("Atmosphere")
     slider("Interface while talking", "uiAlpha", 0, 100, 5, pct, DEFAULTS.uiAlpha)
     slider("Black bars", "bars", 0, 20, 1, pct, DEFAULTS.bars)
     slider("Darker edges", "vignette", 0, 100, 5, pct, DEFAULTS.vignette)
