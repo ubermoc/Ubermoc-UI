@@ -1,2 +1,3 @@
-UbermocUI 1.0.111
-- Text only: 26 of the longest explanations in the settings are now short, plain sentences (Aiming, Interact, NPC Dialogue, nameplates, chat fading, halo frames, party and raid frames, textures, menu bar, action bars, the button test and more). Nothing else changes.
+UbermocUI 1.0.112
+- Nameplates page: less empty space below the options on every tab. The page no longer pads each tab by about 50 px, and the dead strip under the list (44 px) is now 8 px.
+- Nameplates, Kill & Debuffs tab: the debuff options had 18 px less room than they need; the page now leaves enough.

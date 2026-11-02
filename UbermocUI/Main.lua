@@ -3605,7 +3605,7 @@ local function buildNameplatePanel()
     local scroll = CreateFrame("ScrollFrame", nil, nameplatePanel, "UIPanelScrollFrameTemplate")
     scrollFrameRef = scroll
     scroll:SetPoint("TOPLEFT", 8, -322)
-    scroll:SetPoint("BOTTOMRIGHT", -30, 44)
+    scroll:SetPoint("BOTTOMRIGHT", -30, 8)
     local sc = CreateFrame("Frame", nil, scroll)
     sc:SetSize(560, 2160)
 
@@ -3954,7 +3954,7 @@ local function buildNameplatePanel()
             for _, o in ipairs({ f:GetChildren() }) do consider(o) end
             for _, o in ipairs({ f:GetRegions() }) do consider(o) end
             local h = fallback
-            if low > 0 then h = math.min(fallback, math.ceil(low - (lo or 0)) + 30) end
+            if low > 0 then h = math.min(fallback, math.ceil(low - (lo or 0)) + 6) end
             measuredH[key] = h
             return h
         end
@@ -4005,10 +4005,10 @@ local function buildNameplatePanel()
         place(markBox, fit("mark", markBox, 600), enemy and T == "target")
         place(threatBox, fit("threat", threatBox, 350), enemy and T == "target")
         place(killBox, fit("kill", killBox, 380), enemy and T == "kill")
-        place(debBox[group], fit("deb_" .. group, debBox[group], 640), debPanel[group] ~= nil and T == "kill")
+        place(debBox[group], fit("deb_" .. group, debBox[group], 672), debPanel[group] ~= nil and T == "kill")
         if debPanel[group] then debPanel[group].refresh() end
         for g, f in pairs(debBox) do if g ~= group then f:Hide() end end
-        sc:SetHeight(yy + 20)
+        sc:SetHeight(yy + 8)
         if killBox.refreshKill then killBox.refreshKill() end
         if threatBox.refreshThreat then threatBox.refreshThreat() end
         if markBox.refreshMarks then markBox.refreshMarks() end

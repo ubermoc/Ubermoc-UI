@@ -8,7 +8,7 @@
 ## Author: Marcos
 ## X-Copyright: Copyright (c) 2026 Marcos. All rights reserved.
 ## X-License: All Rights Reserved
-## Version: 1.0.111
+## Version: 1.0.112
 ## X-Curse-Project-ID: 1745809
 ## SavedVariables: UbermocUIDB
 
