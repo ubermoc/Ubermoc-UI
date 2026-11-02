@@ -24,7 +24,7 @@ API.registerBorder({ key = "abButtons", part = "abar", label = "Button borders",
     apply = function() if API.abarLayout then API.abarLayout() end end })
 
 local function defaults()
-    return { on = true, hideGame = true, design = "plain", mode = "held", borders = false, pips = true, emptyIcon = false, hideEmpty = false, size = 40, gap = 4, scale = 100,
+    return { on = true, hideGame = true, design = "plain", mode = "held", borders = false, pips = true, emptyIcon = false, hideEmpty = false, centerVisible = false, size = 40, gap = 4, scale = 100,
              x = 0, y = 24, dim = 40, bgA = 90, tex = "brushed", texA = 50, edge = true, labels = true, noBorder = true, showMods = true, showTarget = true, showUI = true, showMove = true,
              convertBinds = true, fillEmpty = true, cdOn = true, cdScale = 100, cdPos = "CENTER", cdX = 0, cdY = 0 }
 end
@@ -503,6 +503,8 @@ ensureRoot = function()
     root:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 24)
     root.pips = {}
     root:Hide()
+    -- The buttons ignore their parent's opacity, so a fade of this frame (Fading page) is passed on to them here.
+    hooksecurefunc(root, "SetAlpha", function() if API.abarRefresh then API.abarRefresh() end end)
     return root
 end
 
@@ -670,6 +672,23 @@ local function heldPrefix()
     return (a and "ALT-" or "") .. (c and "CTRL-" or "") .. (s and "SHIFT-" or "")
 end
 
+-- Is this slot's button empty, and is something being carried on the cursor (empty slots stay shown then, to drop on)?
+local function slotEmpty(s)
+    local act = s.btn.action
+    if not act and s.btn.GetAttribute then act = s.btn:GetAttribute("action") end
+    local empty = s.btn.ubermocEmpty and true or false
+    if act and HasAction then
+        local okH, has = pcall(HasAction, act)
+        empty = okH and not has
+    end
+    return empty
+end
+local function cursorCarrying(d)
+    if not (d.hideEmpty and GetCursorInfo) then return false end
+    local okC, ct = pcall(GetCursorInfo)
+    return okC and ct ~= nil
+end
+
 local function refreshActive()
     if not root or not root:IsShown() then return end
     local d = DB()
@@ -679,6 +698,7 @@ local function refreshActive()
     if not found then found = layersNow[1] end
     -- the buttons keep their own opacity, so the cinematic camera's interface fade is applied here too
     local ua = API.cineUIAlpha and API.cineUIAlpha() or 1
+    local fadeNow = root:GetAlpha()
     for i, L in ipairs(layersNow) do
         local r = rows[i]
         if r then
@@ -687,23 +707,12 @@ local function refreshActive()
             r.f:SetAlpha(a)
             r.top:SetAlpha(a)
             r.active = active
-            local carrying = false
-            if d.hideEmpty and GetCursorInfo then
-                local okC, ct = pcall(GetCursorInfo)
-                carrying = okC and ct ~= nil
-            end
+            local carrying = cursorCarrying(d)
             for k, s in ipairs(L.slots) do
                 local b = r.backs[k]
-                local empty = false
-                local act = s.btn.action
-                if not act and s.btn.GetAttribute then act = s.btn:GetAttribute("action") end
-                if s.btn.ubermocEmpty then empty = true end
-                if act and HasAction then
-                    local okH, has = pcall(HasAction, act)
-                    empty = okH and not has
-                end
+                local empty = slotEmpty(s)
                 local gone = d.hideEmpty and empty and not carrying
-                local wantA = gone and 0 or a
+                local wantA = (gone and 0 or a) * fadeNow
                 local okA, curA = pcall(s.btn.GetAlpha, s.btn)
                 if not okA or curA ~= wantA then pcall(s.btn.SetAlpha, s.btn, wantA) end   -- only when it differs
                 -- Layers can sit on top of each other: the one in use takes the mouse, so the tooltip comes up at once
@@ -946,8 +955,21 @@ local function layout()
         local rowW, rowH, run = {}, s + 2 * P, 0
         if design == "blade" then run = math.floor(rowH * 0.45 + 0.5) end
         local widest = 0
+        -- "Centre the buttons that are shown": empty buttons (with Hide empty buttons on) take no place in the row, so
+        -- the buttons that are left stay centred. Empty ones are put after the row, hidden and out of the mouse's way.
+        local centre = d.hideEmpty and d.centerVisible and true or false
+        local carrying = centre and cursorCarrying(d)
+        local order = {}
         for i, L in ipairs(M) do
-            rowW[i] = innerWidth(#L.slots, s, g) + 2 * P + 2 * run
+            local shown, hidden = {}, {}
+            for k, sl in ipairs(L.slots) do
+                if centre and not carrying and slotEmpty(sl) then hidden[#hidden + 1] = k else shown[#shown + 1] = k end
+            end
+            local o = {}
+            for _, k in ipairs(shown) do o[#o + 1] = k end
+            for _, k in ipairs(hidden) do o[#o + 1] = k end
+            order[i] = { list = o, nShown = #shown }
+            rowW[i] = innerWidth(math.max(#shown, 1), s, g) + 2 * P + 2 * run
             widest = math.max(widest, rowW[i])
         end
         local rgap = (design == "blade") and 3 or 5
@@ -967,11 +989,13 @@ local function layout()
             else
                 r.plate:Hide()
             end
-            for k = 1, #L.slots do
-                local x = x0 + run + P + slotOffset(k, s, g)
+            for pos, k in ipairs(order[i].list) do
+                local x = x0 + run + P + slotOffset(pos, s, g)
                 local y = y0 + P
                 slotBack(r, k, x, y, s, col, design == "plain" and true or nil, design == "plain")
                 place(r, L, k, x, y, s, col, d)
+                -- a hidden empty button must not catch clicks over its neighbour
+                pcall(L.slots[k].btn.EnableMouse, L.slots[k].btn, pos <= order[i].nShown)
             end
             for k = #L.slots + 1, #r.backs do r.backs[k].edge:Hide(); r.backs[k].fill:Hide() end
             for k = #L.slots + 1, #r.keys do r.keys[k]:Hide() end
@@ -1057,7 +1081,12 @@ ev:SetScript("OnEvent", function(_, event)
         if carry == ev.carry then return end
         ev.carry = carry
     end
-    if event == "MODIFIER_STATE_CHANGED" or event == "ACTIONBAR_SLOT_CHANGED" or event == "CURSOR_CHANGED" then pcall(refreshActive); return end
+    if event == "MODIFIER_STATE_CHANGED" or event == "ACTIONBAR_SLOT_CHANGED" or event == "CURSOR_CHANGED" then
+        pcall(refreshActive)
+        local dd = DB()
+        if event ~= "MODIFIER_STATE_CHANGED" and dd.hideEmpty and dd.centerVisible then layoutSoon() end   -- re-centre
+        return
+    end
     if event == "PLAYER_REGEN_ENABLED" then
         if pending then layoutSoon() end
         return
@@ -1192,6 +1221,7 @@ local function buildPage()
     local pipCB = API.newCheck(p, "Coloured squares above the bar", 16, LY - 150, setter("pips", refreshActive))
     local emptyCB = API.newCheck(p, "Icon on empty buttons", 16, LY - 182, setter("emptyIcon", refreshActive))
     local hideEmptyCB = API.newCheck(p, "Hide empty buttons", 16, LY - 214, setter("hideEmpty", refreshActive))
+    local centreCB = API.newCheck(p, "Centre the buttons that are shown (needs Hide empty buttons)", 16, LY - 310, setter("centerVisible"))
     local convCB = API.newCheck(p, "Spells, items and macros bound to a pad button go on real action buttons (bars 2 to 8)", 16, LY - 246, setter("convertBinds"))
     local fillCB = API.newCheck(p, "Every unused pad button gets an empty real action button, ready for a spell", 16, LY - 278, setter("fillEmpty"))
 
@@ -1247,7 +1277,7 @@ local function buildPage()
         API.setSlider(sX, d.x); API.setSlider(sY, d.y); API.setSlider(sDim, d.dim)
         API.setSlider(sBg, d.bgA)
         pipCB:SetChecked(d.pips ~= false)
-        emptyCB:SetChecked(d.emptyIcon == true); hideEmptyCB:SetChecked(d.hideEmpty == true); convCB:SetChecked(d.convertBinds ~= false); fillCB:SetChecked(d.fillEmpty ~= false)
+        emptyCB:SetChecked(d.emptyIcon == true); hideEmptyCB:SetChecked(d.hideEmpty == true); centreCB:SetChecked(d.centerVisible == true); convCB:SetChecked(d.convertBinds ~= false); fillCB:SetChecked(d.fillEmpty ~= false)
         modsCB:SetChecked(d.showMods ~= false); targetCB:SetChecked(d.showTarget ~= false)
         uiCB:SetChecked(d.showUI ~= false); moveCB:SetChecked(d.showMove ~= false)
         local blade = d.design == "blade"

@@ -1,3 +1,5 @@
-UbermocUI 1.0.112
-- Nameplates page: less empty space below the options on every tab. The page no longer pads each tab by about 50 px, and the dead strip under the list (44 px) is now 8 px.
-- Nameplates, Kill & Debuffs tab: the debuff options had 18 px less room than they need; the page now leaves enough.
+UbermocUI 1.0.113
+- Fading: your own action bars can now be faded. New entry "Ubermoc UI action bars" under Action bars (the buttons follow it too).
+- Fading: the floating unit frames can now be faded. New heading "Floating frames (Ubermoc UI)" with Player, Pet, Target, Target of Target, Focus, Focus Target, Party and Raid. Their own dimming for offline and out-of-range members keeps working together with a fade.
+- The floating style text on each Unit Frames page now says where its fade is.
+- Action Bars, Look tab: new "Centre the buttons that are shown". With Hide empty buttons on, empty buttons take no place in the row, so the buttons that are left stay centred (Plain and Blade designs). Move the group with Left / right and Up / down. Changes made in combat are applied when the fight ends.

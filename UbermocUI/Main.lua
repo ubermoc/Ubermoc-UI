@@ -113,7 +113,18 @@ local ELEMENTS = {
     { key = "mirror", label = "Breath / mirror timers", frames = { "MirrorTimerContainer" } },
     { key = "archaeology", label = "Archaeology progress", frames = { "ArcheologyDigsiteProgressBar" } },
     { key = "fps", label = "Framerate display", frames = { "FramerateFrame" } },
+    -- The floating unit frames (TargetFrame.lua) and the addon's own action bars (ActionBars.lua).
+    { key = "flplayer", custom = true, label = "Player Floating Frame (Ubermoc UI)", frames = { "UbermocFloat_player" } },
+    { key = "flpet", custom = true, label = "Pet Floating Frame (Ubermoc UI)", frames = { "UbermocFloat_pet" } },
+    { key = "fltarget", custom = true, label = "Target Floating Frame (Ubermoc UI)", frames = { "UbermocTargetNameplate_target" } },
+    { key = "fltot", custom = true, label = "Target of Target Floating Frame (Ubermoc UI)", frames = { "UbermocTargetNameplate_targettarget" } },
+    { key = "flfocus", custom = true, label = "Focus Floating Frame (Ubermoc UI)", frames = { "UbermocTargetNameplate_focus" } },
+    { key = "flfot", custom = true, label = "Focus Target Floating Frame (Ubermoc UI)", frames = { "UbermocTargetNameplate_focustarget" } },
+    { key = "flparty", custom = true, label = "Party Floating Frames (Ubermoc UI)", frames = { "UbermocFloat_party1", "UbermocFloat_party2", "UbermocFloat_party3", "UbermocFloat_party4" } },
+    { key = "flraid", custom = true, label = "Raid Floating Frames (Ubermoc UI)", frames = {} },
+    { key = "abarcustom", custom = true, label = "Ubermoc UI action bars", frames = { "UbermocActionBars" } },
 }
+for i = 1, 40 do ELEMENTS[#ELEMENTS - 1].frames[i] = "UbermocFloat_raid" .. i end
 
 -- Chat elements live on the Chat page; everything else is on the main page.
 local MAIN_LIST, CHAT_LIST, CHAT_KEYS = {}, {}, {}
@@ -1152,6 +1163,9 @@ function UbermocUIAPI.resolveAlpha(f)
     effOf[f] = a * ancEff
 end
 
+-- The fade a managed frame has right now (1 when none), for frames that set their own opacity as well.
+function UbermocUIAPI.fadeAlphaOf(f) return UbermocUIAPI.buf.ao[f] or 1 end
+
 local driver = CreateFrame("Frame")
 driver:Hide()
 driver:SetScript("OnUpdate", function(self, dt)
@@ -1189,7 +1203,7 @@ driver:SetScript("OnUpdate", function(self, dt)
         -- Only touch frames that need it, so default Blizzard behaviour is left alone.
         if a ~= 1 or touchedFrame[f] then
             touchedFrame[f] = (a ~= 1)
-            f:SetAlpha(a)
+            f:SetAlpha(f.ubRange and (a * f.ubRange) or a)   -- ubRange: a frame that also dims itself (offline, out of range)
         end
         if a ~= 1 then touched[frameElem[f]] = true end
     end
@@ -1940,9 +1954,10 @@ end
 local FADE_CATS = {
     { "Minimap", { "minimap", "minizone", "minihead", "miniclock", "minical", "minitrack", "minidiff", "minilanding", "minimail", "minidiel", "miniaddons", "minizoom", "queue",
                    "ui_xp", "ui_strip", "ui_info", "ui_box", "ui_compass", "ui_perf", "ui_clock" } },
-    { "Action bars", { "mainbar", "sidebars", "classbars", "vehiclebtn", "micro", "bags", "xpbar", "extra" } },
+    { "Action bars", { "mainbar", "sidebars", "abarcustom", "classbars", "vehiclebtn", "micro", "bags", "xpbar", "extra" } },
     { "Unit frames", { "player", "pet", "target", "tot", "focus", "fot", "boss", "arena", "party", "classres", "totem", "prd", "castbar" } },
     { "Halo frames (Ubermoc UI)", { "ringhud", "petframe", "ringtarget", "ringtot", "ringfocus", "ringfot", "partyframes", "raidframes" } },
+    { "Floating frames (Ubermoc UI)", { "flplayer", "flpet", "fltarget", "fltot", "flfocus", "flfot", "flparty", "flraid" } },
     { "Nameplates", { "npenemy", "npfriendly" } },
     { "Auras and cooldowns", { "buffs", "debuffs", "cd_essential", "cd_utility", "cd_buffs", "cd_bars", "procs", "loc" } },
     { "Combat and encounters", { "meter", "encounter", "encwarn", "raidwarn" } },

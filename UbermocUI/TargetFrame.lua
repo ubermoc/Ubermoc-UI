@@ -1241,7 +1241,8 @@ local function fill(f, unit, d, label)
             if okI and plain(inRange) == false then alpha = 0.55 end
         end
     end
-    f:SetAlpha(alpha)
+    f.ubRange = alpha   -- the fade rules (Fading page) multiply this
+    f:SetAlpha(alpha * (API.fadeAlphaOf and API.fadeAlphaOf(f) or 1))
 end
 
 ----------------------------------------------------------------------
@@ -1976,7 +1977,7 @@ local function unitPage(t)
         end
         F.panel:SetShown(st == "float")
         gameNote:SetShown(st == "game")
-        local line = st == "halo" and DESC.halo or (st == "float" and "The floating style: a small flat frame with bars, text and auras. Its design is set on this tab." or DESC.game)
+        local line = st == "halo" and DESC.halo or (st == "float" and "The floating style: a small flat frame with bars, text and auras. Its design is set on this tab. Fade it from Fading > Rules > Floating frames (Ubermoc UI)." or DESC.game)
         U.line:SetText(line)
     end
     U.line = U:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
