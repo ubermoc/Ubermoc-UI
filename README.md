@@ -98,14 +98,6 @@
 <li><strong>Steam Controller:</strong> in Steam's controller settings for WoW, set R4 = Left Shift, R5 = Left Ctrl, L4 = F6 and L5 = Space, and start WoW from Steam.</li>
 </ol>
 
-<h2>Support the project</h2>
-<p>Ubermoc UI is free. If you'd like to say thanks, donations are optional and always appreciated:</p>
-<ul>
-<li><a href="https://github.com/sponsors/ubermoc">GitHub Sponsors</a></li>
-<li><a href="https://ko-fi.com/ubermoc">Ko-fi</a></li>
-<li><a href="https://buymeacoffee.com/Ubermoc">Buy Me a Coffee</a></li>
-</ul>
-
 <h2>Feedback</h2>
 <p>Found a bug or have an idea? Open an issue on the <a href="https://github.com/ubermoc/Ubermoc-UI/issues">Issues tab</a>, or leave a comment on the <a href="https://www.curseforge.com/wow/addons/ubermoc-ui">CurseForge page</a>.</p>
 
@@ -116,3 +108,12 @@
 <li><code>images/</code> - the screenshots on this page</li>
 <li><code>CURSEFORGE-description.html</code> - the text of the CurseForge page</li>
 </ul>
+
+<h2>Support the project</h2>
+<p>Ubermoc UI is free. If you'd like to say thanks, donations are optional and always appreciated:</p>
+<ul>
+<li><a href="https://github.com/sponsors/ubermoc">GitHub Sponsors</a></li>
+<li><a href="https://ko-fi.com/ubermoc">Ko-fi</a></li>
+<li><a href="https://buymeacoffee.com/Ubermoc">Buy Me a Coffee</a></li>
+</ul>
+<p>Made by Marcos (<a href="https://github.com/ubermoc">Ubermoc</a>).</p>
