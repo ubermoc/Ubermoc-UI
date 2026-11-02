@@ -8,4 +8,10 @@ A controller-first interface for World of Warcraft, made to work with all contro
 - `CHANGELOG.txt` - what changed in each version
 - `images/` - screenshots
 
-Voice to text companion: [Ubermoc Speech](https://github.com/ubermoc/Ubermoc-Speech)
+## Works together
+Three projects made to be used together, so you can play World of Warcraft from the couch with only a controller:
+
+- **[Ubermoc Speech](https://github.com/ubermoc/Ubermoc-Speech)**: a Decky plugin for typing. Hold a button, speak, and your words are typed into chat or anything else with focus.
+- **[Ubermoc Warcraft Mod Updater](https://github.com/ubermoc/Ubermoc-Warcraft-Mod-Updater)**: a Decky plugin that installs Ubermoc UI the first time you open Midnight or Forever, and keeps it (and your other GitHub addons) updated from Gaming Mode.
+
+Together: the Updater keeps the addon current, Ubermoc UI lets you play, and Ubermoc Speech does the typing.
