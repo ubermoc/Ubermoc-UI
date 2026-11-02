@@ -1,0 +1,37 @@
+## Interface: 16001, 120105
+## Title: Ubermoc UI
+## Notes: Play World of Warcraft with just a controller, no mouse or keyboard needed. Radial menus, a pointer for every window, controller-friendly dialogue, round unit frames and a minimal interface that fades out of the way.
+## AddonCompartmentFunc: UbermocUI_OnCompartmentClick
+## AddonCompartmentFuncOnEnter: UbermocUI_OnCompartmentEnter
+## AddonCompartmentFuncOnLeave: UbermocUI_OnCompartmentLeave
+## IconTexture: Interface\AddOns\UbermocUI\Media\disc.tga
+## Author: Marcos
+## X-Copyright: Copyright (c) 2026 Marcos. All rights reserved.
+## X-License: All Rights Reserved
+## Version: 1.0.103
+## X-Curse-Project-ID: 1745809
+## SavedVariables: UbermocUIDB
+
+Main.lua
+HDR.lua
+Aim.lua
+Skin.lua
+Extras.lua
+Toolbar.lua
+Dark.lua
+Ring.lua
+Party.lua
+Auras.lua
+DotKill.lua
+TargetMark.lua
+TargetFrame.lua
+ClassRes.lua
+MapBack.lua
+MapMinimal.lua
+ThreatPlate.lua
+Combo.lua
+Controller.lua
+Dialogue.lua
+Cinematic.lua
+ActionBars.lua
+GameOptions.lua

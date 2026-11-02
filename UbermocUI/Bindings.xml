@@ -1,0 +1,32 @@
+<Bindings>
+    <Binding name="UBERMOCUI_REVEAL" header="UBERMOCUI" runOnUp="true">
+        UbermocUI_Reveal(keystate)
+    </Binding>
+    <Binding name="UBERMOCUI_REVEAL_TOGGLE">
+        UbermocUI_RevealToggle()
+    </Binding>
+    <Binding name="UBERMOCUI_TOGGLE">
+        UbermocUI_ToggleEnabled()
+    </Binding>
+    <Binding name="UBERMOCUI_CURSOR">
+        UbermocUI_CursorToggle()
+    </Binding>
+    <Binding name="UBERMOCUI_CURSORMENU">
+        UbermocUI_CursorMenu()
+    </Binding>
+    <Binding name="UBERMOCUI_CURSORCLICK">
+        UbermocUI_CursorClick()
+    </Binding>
+    <Binding name="UBERMOCUI_CURSORRIGHT">
+        UbermocUI_CursorRight()
+    </Binding>
+    <Binding name="UBERMOCUI_CURSORBACK">
+        UbermocUI_CursorBack()
+    </Binding>
+    <Binding name="UBERMOCUI_TOOLBAR">
+        UbermocUI_ToolbarToggle()
+    </Binding>
+    <Binding name="UBERMOCUI_MAPTOGGLE">
+        UbermocUI_MapToggle()
+    </Binding>
+</Bindings>

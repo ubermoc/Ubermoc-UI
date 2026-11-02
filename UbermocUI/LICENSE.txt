@@ -1,0 +1,15 @@
+Ubermoc UI
+Copyright (c) 2026 Marcos. All rights reserved.
+
+This addon, including its code, layout, settings, text and artwork, is the
+original work of Marcos and is protected by copyright.
+
+You may install and use it for your own personal play.
+
+You may NOT, without written permission from the author:
+  - copy, reproduce or redistribute it, in whole or in part, in any form;
+  - modify it or build other works from its code, layout or artwork;
+  - upload it to any other site, addon pack or distribution service;
+  - sell it or include it in anything that is sold.
+
+The addon is provided "as is", without warranty of any kind.
