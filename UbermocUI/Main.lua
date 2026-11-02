@@ -2409,7 +2409,7 @@ function UbermocUIAPI.titleCase(str)
     return (tostring(str or ""):gsub("(%a)([%w']*)", function(a, b) return a:upper() .. b end))
 end
 UbermocUIAPI.NAV = {
-    { "Controller", { "controller", "rings", "interact" } },
+    { "Controller", { "controller", "rings", "interact", "aim" } },
     { "Interface", { "nameplates", "gameopts", "chat", "mm", "unitframes", "combo", "textures", "toolbar", "abar", "npc", "misc", "dark" } },
     { "Minimal UI", { "fading" } },
     { "Tools", { "debug" } },
@@ -3302,23 +3302,18 @@ local function buildMiscPanel()
     end)
     note("Tooltips appear next to your mouse cursor and follow it, instead of sitting in a fixed corner.", -46)
 
-    local mmCB = newCheck(sc, "Minimap button", 16, -86, function(v)
-        UbermocUIDB.minimap.hide = not v
-        updateMinimapButton()
-    end)
-    note("Shows a button on the minimap. Left-click opens these settings, right-click turns Ubermoc UI on or off, and you can drag it around the minimap.", -116)
+    local tipsCB = newCheck(sc, "Hide tutorial pop-ups", 16, -86, function(v) UbermocUIDB.hideTips = v end)
+    note("WoW's little tip boxes only close with a click on their X. This hides them as they show.", -116)
 
-    local vendorRefresh, lootCB, fastCB, tipsCB, hdrRefresh, aimRefresh
+    local vendorRefresh, lootCB, fastCB, hdrRefresh
     refreshMisc = function()
         tipCB:SetChecked(UbermocUIDB.tooltipAtCursor and true or false)
         local okL, al = pcall(GetCVar, "autoLootDefault")
         if lootCB then lootCB:SetChecked(okL and al == "1") end
         if fastCB then fastCB:SetChecked(UbermocUIDB.fastLoot ~= false) end
         if tipsCB then tipsCB:SetChecked(UbermocUIDB.hideTips ~= false) end
-        mmCB:SetChecked(not UbermocUIDB.minimap.hide)
         if vendorRefresh then vendorRefresh() end
         if hdrRefresh then hdrRefresh() end
-        if aimRefresh then aimRefresh() end
     end
 
     newLabel(sc, "Vendors", 16, -162, "GameFontNormalLarge")
@@ -3374,14 +3369,9 @@ local function buildMiscPanel()
     end)
     note("Wipes every Ubermoc UI setting on this account and reloads, so everything starts again from the defaults (the same as a fresh install). Key and controller binds go back to their defaults too (the addon fills its controller binds in again); WoW's other settings are left as they are.", -666)
 
-    newLabel(sc, "Controller", 16, -730, "GameFontNormalLarge")
-    tipsCB = newCheck(sc, "Hide tutorial pop-ups", 16, -762, function(v) UbermocUIDB.hideTips = v end)
-    note("WoW's little tip boxes (\"You have an unopened item in your collection\" and the like) only close with a mouse click on their X. This hides them as soon as they show.", -792)
+    if UbermocUIAPI.buildHDR then hdrRefresh = UbermocUIAPI.buildHDR(sc, -730) end
 
-    if UbermocUIAPI.buildHDR then hdrRefresh = UbermocUIAPI.buildHDR(sc, -870) end
-    if UbermocUIAPI.buildAim then aimRefresh = UbermocUIAPI.buildAim(sc, -1340) end
-
-    UbermocUIAPI.miscSelectTab = UbermocUIAPI.makeTabs(miscPanel, scroll, sc, { { "General", 0 }, { "Vendors", -152 }, { "Everything at once", -484 }, { "Controller", -720 }, { "HDR", -860 }, { "Aiming", -1330 } })
+    UbermocUIAPI.miscSelectTab = UbermocUIAPI.makeTabs(miscPanel, scroll, sc, { { "General", 0 }, { "Vendors", -152 }, { "Everything at once", -484 }, { "HDR", -720 } })
     attachReload(miscPanel)
     miscPanel:Hide()
     miscPanel:SetScript("OnShow", function() refreshMisc(); evaluate() end)
@@ -6503,7 +6493,7 @@ do
                 if type(b) == "table" then seen[b] = true end
             end
         end
-        -- The game's addon list button (addons without a minimap button of their own, such as Dialogue UI,
+        -- The game's addon list button (addons without a minimap button of their own,
         -- only appear in its list): it goes in the container too.
         local ac = _G.AddonCompartmentFrame
         if type(ac) == "table" and ac.IsShown and ac:IsShown() and not (ac.IsForbidden and ac:IsForbidden()) then seen[ac] = true end
@@ -7481,7 +7471,13 @@ do
         -- Addon buttons -----------------------------------------------------------------------------
         y = y - 16
         tab("Addon Buttons")
-        header("Addon button container")
+        header("Ubermoc UI button")
+        check("uiBtn", "Show the Ubermoc UI button on the minimap", function(v)
+            UbermocUIDB.minimap.hide = not v
+            updateMinimapButton()
+        end)
+        note("Left-click opens these settings, right-click turns Ubermoc UI on or off. Drag it to move it.", 1)
+        header("Addon button container", 6)
         check("boxOn", "Gather addon minimap buttons into one button that flies them out", function(v) mm().box.on = v; mmApply() end)
         check("boxInside", "Keep it inside the map, tucked into the corner", function(v)
             local b = mm().box
@@ -7655,6 +7651,7 @@ do
                 T[key]:SetChecked(c[g] and c[g][f] and true or false)
             end
             T.zoneIn:SetChecked(c.zone and c.zone.inside and true or false)
+            T.uiBtn:SetChecked(not UbermocUIDB.minimap.hide)
             do
                 local so = c.xp.stripOutline
                 if so == nil then so = 100 elseif so == true then so = 100 elseif so == false then so = 0 end

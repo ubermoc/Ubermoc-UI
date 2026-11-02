@@ -1429,7 +1429,7 @@ local function buildRingsPage()
     API.newLabel(p, "Hold the key and a ring pops up. Push the left stick toward an entry and let go to use it. With a mouse, click an entry.", 8, -40, "GameFontHighlightSmall")
 
     local roundCB
-    roundCB = API.newCheck(p, "Round buttons on all rings", 300, -14, function(v)
+    roundCB = API.newCheck(p, "Round buttons on all rings", 16, -996, function(v)
         DB.ringRound = v
         for _, r in pairs(rings) do
             for _, b in pairs(r.buttons) do roundRingButton(b, v) end
@@ -1555,14 +1555,14 @@ local function buildRingsPage()
         refreshSlots()
         API.evaluate()
     end)
-    API.newLabel(p, "After using a ring entry (applies to all rings)", 8, -970, "GameFontNormal")
-    API.newLabel(p, "Keep the stick locked, at most", 40, -1004)
+    API.newLabel(p, "All rings", 8, -966, "GameFontNormalLarge")
+    API.newLabel(p, "After using an entry, keep the stick locked at most", 40, -1034)
     local stickMax = API.makeSlider(p, 140, 0, 5, 0.1, function(v) return string.format("%.1f s", v) end, function(v) DB.stickMax = math.floor(v * 10 + 0.5) / 10 end)
-    stickMax:SetPoint("TOPLEFT", 300, -1004)
-    API.newLabel(p, "Extra time after it is centred", 40, -1042)
+    stickMax:SetPoint("TOPLEFT", 400, -1034)
+    API.newLabel(p, "Extra time after it is centred", 40, -1068)
     local stickExtra = API.makeSlider(p, 140, 0, 1, 0.05, function(v) return string.format("%.2f s", v) end, function(v) DB.stickExtra = math.floor(v * 20 + 0.5) / 20 end)
-    stickExtra:SetPoint("TOPLEFT", 300, -1042)
-    local snote = API.newLabel(p, "The stick stays locked after you use an entry so the character does not walk off in the direction you were pointing. Set the first to 0 to unlock it at once.", 8, -1080, "GameFontHighlightSmall")
+    stickExtra:SetPoint("TOPLEFT", 400, -1068)
+    local snote = API.newLabel(p, "The stick stays locked so the character does not walk off. Set the first to 0 to unlock it at once.", 8, -1100, "GameFontHighlightSmall")
     snote:SetWidth(570); snote:SetJustifyH("LEFT"); snote:SetWordWrap(true)
     panel:HookScript("OnShow", function()
         API.setSlider(stickMax, DB.stickMax or 0.1); API.setSlider(stickExtra, DB.stickExtra or 0.1)
@@ -1651,7 +1651,7 @@ local function buildRingsPage()
         pcall(rebuildMenu)
         pcall(rebuildCorner)
     end
-    API.makeTabs(panel, scroll, p, { { "Pet ring", 0 }, { "Utility ring", -406 }, { "Menu ring", -1110 }, { "Corner menu wheel", -1504 }, { "Corner bags wheel", -1954 } })
+    API.makeTabs(panel, scroll, p, { { "Pet ring", 0 }, { "Utility ring", -406 }, { "All rings", -962 }, { "Menu ring", -1110 }, { "Corner menu wheel", -1504 }, { "Corner bags wheel", -1954 } })
     addPage(panel, "Rings")
 end
 

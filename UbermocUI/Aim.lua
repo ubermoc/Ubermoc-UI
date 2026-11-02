@@ -1,5 +1,5 @@
 -- Aiming: ground spells (Heroic Leap, Blizzard and the like) cast on release, and a crosshair or dot in the middle of the
--- screen while one is being aimed. Settings are on the Miscellaneous page (Aiming tab).
+-- screen while one is being aimed. Settings are on their own page, Aiming (under Controller).
 local API = UbermocUIAPI
 if not API then return end
 
@@ -487,4 +487,21 @@ function API.buildAim(sc, y0)
     note("The mark shows only while a ground spell is being aimed. The spell lands where the mouse pointer is. The mark sits where the game keeps the centered pointer while you steer the camera with the controller; Left / right and Up / down move it from there. Choose Always to see it whenever the controller steers the camera. Type /ubaim to see what the mark sees.", 16, y)
     refresh()
     return refresh
+end
+
+-- The Aiming page (built the first time the settings window opens, like the other pages).
+if API.later then
+    API.later("Aiming", function()
+        local panel = CreateFrame("Frame")
+        panel.name = "Aiming"
+        local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
+        scroll:SetPoint("TOPLEFT", 0, -48)
+        scroll:SetPoint("BOTTOMRIGHT", -30, 8)
+        local sc = CreateFrame("Frame", nil, scroll)
+        sc:SetSize(600, 900)
+        scroll:SetScrollChild(sc)
+        local refresh = API.buildAim(sc, -16)
+        panel:SetScript("OnShow", function() refresh(); if API.evaluate then API.evaluate() end end)
+        API.addPage("aim", "Aiming", panel)
+    end)
 end

@@ -218,7 +218,7 @@ SlashCmdList["UBERMOCHDR"] = function()
     report()
     if not (API.openWindow and UbermocUIDB) then return end
     API.openWindow("misc")
-    if API.miscSelectTab then API.miscSelectTab(5) end
+    if API.miscSelectTab then API.miscSelectTab(4) end
 end
 
 -- Made when the addon loads (and again at login if that was too early).

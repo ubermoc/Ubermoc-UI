@@ -966,11 +966,11 @@ local function build()
     end)
     local hn = API.newLabel(sc, "For quest window addons that show their controller hints on a bar at the bottom of the screen: the bar is drawn here, with this controller's button names.", 40, ry - 108, "GameFontHighlightSmall")
     hn:SetWidth(500); hn:SetJustifyH("LEFT"); hn:SetWordWrap(true)
-    local duiCB = API.newCheck(sc, "Switch Dialogue UI to controller button prompts", 8, ry - 146, function(v)
+    local duiCB = API.newCheck(sc, "Switch the dialogue add-on to controller button prompts", 8, ry - 146, function(v)
         DB().dui = v
         if v and API.syncDialogueUI then API.syncDialogueUI(true) end
     end)
-    local dn = API.newLabel(sc, "When a controller is connected and Dialogue UI is set to keyboard and mouse, its Input Device setting is switched to match this controller (Xbox, PlayStation or Switch buttons). A reload finishes the switch.", 40, ry - 176, "GameFontHighlightSmall")
+    local dn = API.newLabel(sc, "When a controller is connected and your dialogue add-on is set to keyboard and mouse, its input setting is switched to match this controller. A reload finishes the switch.", 40, ry - 176, "GameFontHighlightSmall")
     dn:SetWidth(500); dn:SetJustifyH("LEFT"); dn:SetWordWrap(true)
     local curCB = API.newCheck(sc, "Right stick moves the mouse when a menu is open", 8, ry - 220, function(v)
         DB().cursor = v
@@ -979,6 +979,7 @@ local function build()
     local cn = API.newLabel(sc, "Uses the game's own gamepad cursor, so the pointer shows up when a window or this menu opens. The D-pad still moves between parts one at a time.", 40, ry - 250, "GameFontHighlightSmall")
     cn:SetWidth(500); cn:SetJustifyH("LEFT"); cn:SetWordWrap(true)
     sc:SetHeight(-(ry - 300) + 8)
+    API.makeTabs(panel, scroll, sc, { { "Layout", 0 }, { "Binds by bar", by + 8 }, { "More", ry + 10 } }, -52)
 
     -- Press-a-button dialog -------------------------------------------------------------------------
     -- A dimmed page with a centred dialog: what you are binding, live chips for the buttons you are
@@ -1740,14 +1741,14 @@ do
 end
 
 ----------------------------------------------------------------------
--- Dialogue UI picks its button prompts from its own "Input Device" setting (keyboard and mouse by
+-- The dialogue add-on picks its button prompts from its own "Input Device" setting (keyboard and mouse by
 -- default). With a controller connected, switch it to the matching controller once.
 ----------------------------------------------------------------------
 do
     local DEVICE = { xbox = 2, steam = 2, ps5 = 3, ps3 = 3, switch = 4 }
     if StaticPopupDialogs then
         StaticPopupDialogs["UBERMOCUI_DUI_RELOAD"] = {
-            text = "Dialogue UI now uses controller button prompts. Reload the interface to finish?",
+            text = "The dialogue add-on now uses controller button prompts. Reload the interface to finish?",
             button1 = "Reload", button2 = "Later",
             OnAccept = function() ReloadUI() end,
             timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,

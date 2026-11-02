@@ -1,3 +1,7 @@
-UbermocUI 1.0.108
-- Controller: the D-pad only moves the pointer again. It no longer changes numbers (1.0.106 added that by mistake). Values change with A: A on -, + , < or > steps once, and holding A keeps going.
-- The pointer hint line no longer mentions changing a number with left / right.
+UbermocUI 1.0.109
+- New Aiming page under Controller (it was a tab at the end of Miscellaneous).
+- Buttons page: now three tabs, Layout, Binds by bar and More, instead of one very long page.
+- Radial Menus: new "All rings" tab holding the settings that apply to every ring (round buttons, how long the stick stays locked after using an entry).
+- Minimap page: the Ubermoc UI minimap button switch is now on the Addon Buttons tab.
+- Miscellaneous: "Hide tutorial pop-ups" moved to the General tab, and the one-option Controller tab is gone. HDR is now the fourth tab (/hdr still opens it).
+- Text only: the controller options no longer name another addon.
