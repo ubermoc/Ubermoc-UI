@@ -6,7 +6,7 @@ if not API then return end
 local MEDIA = "Interface\\AddOns\\UbermocUI\\Media\\"
 
 local function defaults()
-    return { hold = true, center = true, mark = false, when = "aim", style = "cross", size = 4, thick = 1, a = 80, x = 0, y = 0, r = 1, g = 1, b = 1, height = 70 }
+    return { hold = true, center = true, mark = true, when = "aim", style = "dot", size = 4, thick = 1, a = 80, x = 0, y = 0, r = 1, g = 1, b = 1, height = 70 }
 end
 local filled
 local function DB()

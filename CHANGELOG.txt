@@ -1,3 +1,6 @@
+UbermocUI 1.0.115
+- Changed: the aiming dot is now on by default while a ground spell (Heroic Leap, Blizzard and the like) is being aimed. Settings you already saved are kept.
+
 UbermocUI 1.0.114
 - Fixed: the controller picture (its dots, labels and lines) showed on every tab of the Buttons page and overlapped the bind rows. It now shows only on the Layout tab.
 - Fixed: choosing Set Focus (or other entries) in the menu opened with the interact key on a targeted player gave an "AddOn tried to call the protected function FocusUnit()" error. That menu is now opened by the game itself, the same way as a right-click on a unit frame.
