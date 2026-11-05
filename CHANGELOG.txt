@@ -1,3 +1,8 @@
+UbermocUI 1.0.116
+- Changed: the Start button now works in steps like Esc on a keyboard. The first press closes open windows, clears the target and stops a cast, and the next press opens the game menu. It no longer loses a press, and in combat it only clears the target and stops the cast.
+- Fixed: combo points showed twice on the target. The nameplate points now only show when the floating target frame is not already showing them.
+- Fixed: the quest icon on the floating target frame now shows the objective progress (such as 1/5) next to it, like the nameplate icon.
+
 UbermocUI 1.0.115
 - Changed: the aiming dot is now on by default while a ground spell (Heroic Leap, Blizzard and the like) is being aimed. Settings you already saved are kept.
 

@@ -186,8 +186,8 @@ local function update()
     else
         haloF:Hide()
     end
-    -- Nameplate
-    local plate = cur and d.plate.on and C_NamePlate and C_NamePlate.GetNamePlateForUnit and C_NamePlate.GetNamePlateForUnit("target")
+    -- Nameplate: only when the halo frame is not already showing the points, so they never show twice
+    local plate = cur and d.plate.on and not hf and C_NamePlate and C_NamePlate.GetNamePlateForUnit and C_NamePlate.GetNamePlateForUnit("target")
     local anchor = plate and plateAnchor(plate)
     if anchor then
         if plateF:GetParent() ~= plate then

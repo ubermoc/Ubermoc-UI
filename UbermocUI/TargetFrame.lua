@@ -141,6 +141,29 @@ local function isQuestUnit(unit)
     return ok and plain(r) == true
 end
 
+-- Objective progress such as "1/5" (or "45%"), read from the unit's tooltip lines, as on the nameplate's quest icon.
+local function questProgress(unit)
+    if not (C_TooltipInfo and C_TooltipInfo.GetUnit) then return nil end
+    local ok, text = pcall(function()
+        local data = C_TooltipInfo.GetUnit(unit)
+        if not data or not data.lines then return nil end
+        if TooltipUtil and TooltipUtil.SurfaceArgs then TooltipUtil.SurfaceArgs(data) end
+        for _, line in ipairs(data.lines) do
+            if TooltipUtil and TooltipUtil.SurfaceArgs then TooltipUtil.SurfaceArgs(line) end
+            local t = plain(line.leftText)
+            if type(t) == "string" then
+                local have, need = t:match("(%d+)%s*/%s*(%d+)")
+                if have then return have .. "/" .. need end
+                local percent = t:match("(%d+)%%")
+                if percent then return percent .. "%" end
+            end
+        end
+        return nil
+    end)
+    if ok then return text end
+    return nil
+end
+
 ----------------------------------------------------------------------
 -- Building one frame
 ----------------------------------------------------------------------
@@ -318,6 +341,10 @@ local function newFrame(name, level)
         f.questIcon:SetTexture("Interface\\GossipFrame\\AvailableQuestIcon")
     end
     f.questIcon:Hide()
+    f.questText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    f.questText:SetTextColor(1, 0.95, 0.4, 1)
+    f.questText:SetPoint("LEFT", f.questIcon, "RIGHT", 2, 0)
+    f.questText:Hide()
     -- Crowd control over the portrait (round, with its own timer swipe).
     f.cc = CreateFrame("Frame", nil, f)
     f.cc:SetFrameLevel(f:GetFrameLevel() + 3)
@@ -1200,7 +1227,23 @@ local function fill(f, unit, d, label)
     pcall(setHealthBar, f.hp.sb, unit)
     f.hp.sb:SetStatusBarColor(r, g, b)
     -- quest marker to the right of the bars: on the frames over a unit's head (target, focus and so on)
-    f.questIcon:SetShown(not f.fixed and d.questIcon ~= false and f.hp.sb:IsShown() and isQuestUnit(unit))
+    local quest = not f.fixed and d.questIcon ~= false and f.hp.sb:IsShown() and isQuestUnit(unit)
+    f.questIcon:SetShown(quest)
+    -- the objective progress next to it (read from the tooltip, so at most once a second)
+    if quest then
+        local now = GetTime()
+        local okG, guid = pcall(UnitGUID, unit)
+        guid = (okG and plain(guid)) or unit
+        if f.qpUnit ~= guid or not f.qpAt or now - f.qpAt >= 1 then
+            f.qpUnit, f.qpAt = guid, now
+            f.qpText = questProgress(unit)
+        end
+        f.questText:SetText(f.qpText or "")
+        f.questText:SetShown(f.qpText ~= nil)
+    else
+        f.qpAt = nil
+        f.questText:Hide()
+    end
     local okC, conn = pcall(UnitIsConnected, unit)
     local offline = okC and plain(conn) == false
     local okD, dead = pcall(UnitIsDeadOrGhost, unit)

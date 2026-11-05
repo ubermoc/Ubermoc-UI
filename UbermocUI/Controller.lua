@@ -193,9 +193,66 @@ local function enableGamepadUI()
     end
 end
 
--- Start is the game's own Escape action (closes windows, clears the target, then the game menu).
+-- Start works in steps, like Esc on a keyboard: the first press closes what is open, clears the target and stops a
+-- cast, and once there is nothing left to clear the next press opens the game menu. (The game's own Escape action
+-- does this too, but on a controller its first steps can use up every press so the menu never opens.) Clearing the
+-- target and stopping a cast are protected, so they run from a secure macro on the button; the closing and the menu
+-- are done just before it, through securecallfunction so this addon's taint stays out of the game's panels.
 local menuOpen
-local function menuWanted() return "TOGGLEGAMEMENU" end
+local MENU_BIND = "CLICK UbermocMenu:LeftButton"
+local function menuWanted() return MENU_BIND end
+
+local function shownFrame(f) return type(f) == "table" and f.IsShown and f:IsShown() and true or false end
+
+local function startPanelsOpen()
+    if (API.win and shownFrame(API.win)) or shownFrame(_G.SettingsPanel) or shownFrame(_G.DropDownList1) or shownFrame(_G.DropDownList2) then return true end
+    if menuOpen and menuOpen() then return true end
+    for i = 1, 4 do if shownFrame(_G["StaticPopup" .. i]) then return true end end
+    return false
+end
+
+local function startClosePanels()
+    if StaticPopup_EscapePressed then secureCall(StaticPopup_EscapePressed) end
+    if shownFrame(_G.SettingsPanel) then secureCall(_G.SettingsPanel.Close, _G.SettingsPanel, true) end
+    if API.win and shownFrame(API.win) then pcall(API.win.Hide, API.win) end
+    if CloseMenus then secureCall(CloseMenus) end
+    if CloseAllWindows then secureCall(CloseAllWindows) end
+end
+
+-- What a press of Start does: "combat" (nothing but the macro), "hide" the menu if it is up, "clear" (close panels, then
+-- the macro clears the target and stops a cast), or "menu" when there was nothing to clear.
+local function startPressed()
+    if InCombatLockdown() then return "combat" end
+    local gm = _G.GameMenuFrame
+    if shownFrame(gm) then
+        secureCall(HideUIPanel, gm)
+        return "hide"
+    end
+    local panels = startPanelsOpen()
+    local casting = (UnitCastingInfo and UnitCastingInfo("player")) or (UnitChannelInfo and UnitChannelInfo("player"))
+    if panels or UnitExists("target") or casting then
+        if panels then startClosePanels() end
+        return "clear"
+    end
+    if gm and not (AreAllPanelsDisallowed and AreAllPanelsDisallowed()) then secureCall(ShowUIPanel, gm) end
+    return "menu"
+end
+
+-- Bindings reach this through a click on the button. It is a secure button so that the macro can clear the target; the
+-- type is switched off for presses that should not clear anything (it cannot be changed in combat, where the press
+-- always runs the macro).
+local starter = CreateFrame("Button", "UbermocMenu", UIParent, "SecureActionButtonTemplate")
+starter:RegisterForClicks("AnyUp")
+starter:SetAttribute("useOnKeyDown", false)
+starter:SetAttribute("type", "macro")
+starter:SetAttribute("macrotext", "/stopcasting\n/cleartarget")
+starter:SetScript("PreClick", function()
+    local ok, action = pcall(startPressed)
+    if ok and not InCombatLockdown() then starter:SetAttribute("type", action == "clear" and "macro" or nil) end
+end)
+starter:SetScript("PostClick", function()
+    if not InCombatLockdown() then starter:SetAttribute("type", "macro") end
+end)
 
 local function bindMenu()
     if InCombatLockdown() then return end
@@ -262,10 +319,14 @@ local function enablePad()
     if ok and v ~= "1" then pcall(SetCVar, "GamePadEnable", "1") end
     pcall(enableGamepadUI)
     pcall(applyCursor, DB().cursor ~= false)
-    -- Start is the Escape key unless something else is bound to it.
+    -- Start is the stepped menu button unless something else is bound to it. It used to be the game's own Escape
+    -- action; that default is replaced once.
     if not InCombatLockdown() then
         local cur = GetBindingAction("PADFORWARD") or ""
-        if cur == "" or cur == "UBERMOCUI_MENU" or cur:find("UbermocMenu", 1, true) then
+        local d = DB()
+        local oldDefault = not d.menuDirect and cur == "TOGGLEGAMEMENU"
+        d.menuDirect = true
+        if cur == "" or cur == "UBERMOCUI_MENU" or cur:find("UbermocMenu", 1, true) or oldDefault then
             bindMenu()
             if SaveBindings and GetCurrentBindingSet then pcall(SaveBindings, GetCurrentBindingSet()) end
         end
@@ -334,6 +395,7 @@ end
 local function actionName(cmd)
     if not cmd or cmd == "" then return "Nothing" end
     if cmd == "TOGGLEGAMEMENU" then return "Game menu (Escape)" end
+    if cmd == MENU_BIND then return "Game menu (Start)" end
     local kind, what = cmd:match("^(%u+) (.+)$")
     if kind == "SPELL" then return what end
     if kind == "MACRO" then return "Macro: " .. what end
