@@ -247,9 +247,35 @@ local function microSnap()
     end
     return table.concat(t)
 end
+-- When the game's own function for a menu button has just run (the button was clicked and did its job), the window
+-- is already toggled: opening it again from here would close it. The professions book is one such function.
+local ranAt = {}
+do
+    local function watch()
+        for _, fn in ipairs({ "ToggleProfessionsBook" }) do
+            if type(_G[fn]) == "function" and not ranAt["hooked" .. fn] then
+                ranAt["hooked" .. fn] = true
+                hooksecurefunc(fn, function() ranAt[fn] = GetTime() end)
+            end
+        end
+    end
+    watch()
+    if C_Timer then C_Timer.After(2, watch); C_Timer.After(6, watch) end
+end
+local BIND_FUNC = { TOGGLEPROFESSIONBOOK = "ToggleProfessionsBook" }
+
 local function microFallback(s, before)
     if not s or s.t ~= "micro" or not s.bind or not MICRO_OPEN[s.bind] then return end
-    if microSnap() == before then pcall(MICRO_OPEN[s.bind]) end
+    local started = GetTime()
+    -- A window that is loaded the first time it is opened (the professions book) can take a moment to show, and
+    -- toggling it again straight away closed it again: you heard the click and saw nothing. So wait before deciding
+    -- that the button opened nothing.
+    C_Timer.After(0.35, function()
+        if InCombatLockdown() then return end
+        local fn = BIND_FUNC[s.bind]
+        if fn and ranAt[fn] and ranAt[fn] >= started - 0.5 then return end   -- the game's own toggle already ran
+        if microSnap() == before then pcall(MICRO_OPEN[s.bind]) end
+    end)
 end
 
 local function newRing(key, title, cfgKey)

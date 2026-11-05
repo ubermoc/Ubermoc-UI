@@ -1,3 +1,8 @@
+UbermocUI 1.0.118
+- Fixed: Professions on the micro corner wheel opened and then closed straight away. The wheel's backup no longer toggles a window the game's own button has already toggled.
+- Fixed: the combo point number on the floating target frame no longer depends on the halo option. It has its own switch on the Combo Points page ("Combo points on the floating target frame's portrait"), on by default, so the number shows on the portrait instead of the nameplate number and the row of dots overlapping.
+- New: /ubwatch on prints who opens and closes the game's windows, to track down a window that closes by itself.
+
 UbermocUI 1.0.117
 - New: bags, the game's menu panels and the game's own options now move the game's own cursor, like Ubermoc Forever. The D-pad jumps between buttons, A and X click, the bumpers switch tabs, the triggers scroll, B goes back, and everything closes by itself when combat starts. Question windows, frame moving and the Y item menu keep the old pointer.
 - New: a row of small buttons above your player portrait for Stealth, Vanish and your class's forms and stances (the game's stance bar), in the game's own button art. It stays centred and shows all the time.

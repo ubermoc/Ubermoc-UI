@@ -18,6 +18,7 @@ local function defaults()
     return {
         halo = { on = true, mode = "number", nsize = 18, nx = 0, ny = 0, size = 10, gap = 4, dist = 4, r = 1, g = 0.82, b = 0.1, er = 0.12, eg = 0.12, eb = 0.15, ea = 0.9,
                  cr = 0.3, cg = 0.75, cb = 1 },
+        float = { on = true },   -- the floating target frame's portrait (it uses the halo part's look)
         plate = { on = true, mode = "dots", pos = "TOP", size = 8, gap = 3, x = 0, y = 4, nsize = 16,
                   r = 1, g = 0.82, b = 0.1, er = 0.12, eg = 0.12, eb = 0.15, ea = 0.9, cr = 0.3, cg = 0.75, cb = 1 },
     }
@@ -40,7 +41,7 @@ API.comboDB = DB
 -- True while the combo points are set to wrap around the floating target frame's portrait; that frame then has no
 -- combo row of its own under its bars (ClassRes.lua).
 API.comboOnFloat = function()
-    return DB().halo.on and API.floatingTargetOn and API.floatingTargetOn() and true or false
+    return DB().float.on and API.floatingTargetOn and API.floatingTargetOn() and true or false
 end
 
 local function isSecret(v) return issecretvalue and issecretvalue(v) end
@@ -211,7 +212,7 @@ local function update()
     if cur and cur <= 0 then cur = nil end
     -- The floating target frame: the points wrap around the left-hand side of its portrait. It comes first, so the
     -- halo frame and the nameplate never show the points a second time.
-    local ff = cur and d.halo.on and API.floatFrame and API.floatFrame("target")
+    local ff = cur and d.float.on and API.floatFrame and API.floatFrame("target")
     local ring = ff and ff.IsShown and ff:IsShown() and ff.ring
     if ring and not ring:IsShown() then ring = nil end
     if ring then
@@ -387,7 +388,8 @@ local function buildPage()
     end
 
     header("On the floating target frame and the target halo frame")
-    check("halo", "on", "Combo points on the floating frame's portrait, or over the halo frame")
+    check("float", "on", "Combo points on the floating target frame's portrait")
+    check("halo", "on", "Combo points over the target halo frame")
     API.newLabel(sc, "Show as", 30, y - 4)
     local haloMode = API.segRow(sc, 208, y, { { "dots", "Dots in an arc", 110 }, { "number", "A number", 90 } },
         function() return DB().halo.mode ~= "dots" and "number" or "dots" end,
@@ -436,7 +438,7 @@ local function buildPage()
     function panel.refresh()
         pcall(applyPlateResource)
         local d = DB()
-        for _, part in ipairs({ "halo", "plate" }) do
+        for _, part in ipairs({ "float", "halo", "plate" }) do
             for k, w in pairs(ctl) do
                 if k:sub(1, #part) == part then
                     local key = k:sub(#part + 1)
@@ -448,9 +450,9 @@ local function buildPage()
         end
         modeBtn.refresh(); posBtn.refresh(); haloMode.refresh()
         test:SetChecked(testing)
-        local hOn, pOn = d.halo.on, d.plate.on
+        local hOn, pOn = (d.halo.on or d.float.on) and true or false, d.plate.on   -- (the look settings serve both)
         for k, w in pairs(ctl) do
-            if k ~= "haloon" and k ~= "plateon" then
+            if k ~= "haloon" and k ~= "plateon" and k ~= "floaton" then
                 local isHalo = k:sub(1, 4) == "halo"
                 local on = isHalo and hOn or (not isHalo and pOn)
                 if hOn and isHalo then
