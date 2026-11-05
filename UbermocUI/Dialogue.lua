@@ -929,15 +929,41 @@ end
 ----------------------------------------------------------------------
 -- Showing
 ----------------------------------------------------------------------
+-- When this window cannot be drawn, the game's own gossip / quest window stays hidden too, and the NPC has your attention
+-- with nothing on screen until you walk away. So the game's window is shown instead for that conversation, the reason is
+-- printed, and ours is taken over again once the conversation ends.
+local function fallbackToGame(err)
+    S.mode = nil
+    if f then f:Hide() end
+    if S.released then return end   -- already showing the game's window for this conversation
+    print("|cffff8800Ubermoc UI:|r the NPC dialogue could not be drawn (" .. tostring(err) .. "). The game's own window is shown for this conversation.")
+    if not InCombatLockdown() and API.npcRelease then
+        pcall(API.npcRelease)
+        S.released = true
+        for _, n in ipairs({ "GossipFrame", "QuestFrame" }) do
+            local fr = _G[n]
+            if fr and fr.IsShown and fr:IsShown() and ShowUIPanel then pcall(ShowUIPanel, fr) end
+        end
+    end
+end
+
 local function show(mode, builder)
-    if not DB().on then return end
+    if not DB().on or S.released then return end   -- (the game's own window has this conversation: see fallbackToGame)
     S.token = S.token + 1
     if S.mode ~= mode then S.sel, S.top, S.choice, S.compare = 1, 0, nil, false end
     S.mode = mode
     local ok, data = pcall(builder)
-    if not ok or not data then if DB().debug then print("NPC dialogue:", data) end return end
+    if not ok or not data then
+        if DB().debug then print("NPC dialogue:", data) end
+        fallbackToGame(ok and "nothing to show" or data)
+        return
+    end
     local ok2, err2 = pcall(render, data)
-    if not ok2 then if DB().debug then print("NPC dialogue:", err2) end return end
+    if not ok2 then
+        if DB().debug then print("NPC dialogue:", err2) end
+        fallbackToGame(err2)
+        return
+    end
     -- the sell price of a reward can arrive a moment after the window: draw again once it is known
     if mode == "complete" or mode == "detail" then
         C_Timer.After(0.4, function() if S.mode == mode and f and f:IsShown() then pcall(function() render(({ complete = dataComplete, detail = dataDetail })[mode](), true) end) end end)
@@ -1067,6 +1093,7 @@ local function takeOver(on)
 end
 applyThemeRef = function() if f then applyTheme() end end
 API.npcTakeOver = function() takeOver(DB().on) end
+API.npcRelease = function() takeOver(false) end
 
 -- Keys, controller buttons and closing, hooked up once the window exists.
 local wired = false
@@ -1089,6 +1116,29 @@ function API.npcWire()
             pcall(self.SetFrameStrata, self, up and "MEDIUM" or "DIALOG")
         end
     end)
+end
+
+-- The game's own gossip and quest windows sit in a hidden frame while ours is in use, but the game still counts them as
+-- open. Accepting one quest from an NPC with several can leave the game on the list again while our window has just
+-- closed: the conversation is still open, nothing shows, and the interact key does nothing until you walk away. A moment
+-- after a quest or gossip window closes, if the game still has a conversation open and ours is not showing, ours opens
+-- for it again.
+local function recover()
+    if not DB().on or S.mode or (f and f:IsShown()) then return end
+    if S.dismissedAt and GetTime() - S.dismissedAt < 1 then return end
+    if InCombatLockdown() then return end
+    local function shown(fr) return fr and fr.IsShown and fr:IsShown() end
+    local gf, qf = _G.GossipFrame, _G.QuestFrame
+    if shown(gf) then
+        trace("recover: gossip")
+        show("gossip", dataGossip)
+    elseif shown(qf) then
+        trace("recover: quest")
+        if shown(_G.QuestFrameRewardPanel) then show("complete", dataComplete)
+        elseif shown(_G.QuestFrameProgressPanel) then show("progress", dataProgress)
+        elseif shown(_G.QuestFrameDetailPanel) then show("detail", dataDetail)
+        elseif shown(_G.QuestFrameGreetingPanel) then show("greeting", dataGreeting) end
+    end
 end
 
 local ev = CreateFrame("Frame")
@@ -1134,12 +1184,19 @@ ev:SetScript("OnEvent", function(_, event)
     elseif event == "QUEST_PROGRESS" then show("progress", dataProgress)
     elseif event == "QUEST_COMPLETE" then show("complete", dataComplete)
     elseif event == "QUEST_FINISHED" then
-        if S.mode ~= "preview" then close() end
+        if S.released then S.released = false; C_Timer.After(0.6, function() if not InCombatLockdown() then pcall(API.npcTakeOver) end end) end
+        if S.mode ~= "preview" then
+            close()
+            C_Timer.After(0.35, function() pcall(recover) end)
+        end
     elseif event == "GOSSIP_CLOSED" then
+        if S.released then S.released = false; C_Timer.After(0.6, function() if not InCombatLockdown() then pcall(API.npcTakeOver) end end) end
         -- choosing a quest in a gossip list sends GOSSIP_CLOSED first and the quest right after: wait a moment
         local token = S.token
         if S.mode == "gossip" then
-            C_Timer.After(0.25, function() if S.token == token and S.mode == "gossip" then close() end end)
+            C_Timer.After(0.25, function()
+                if S.token == token and S.mode == "gossip" then close(); C_Timer.After(0.1, function() pcall(recover) end) end
+            end)
         end
     elseif event == "QUEST_ITEM_UPDATE" or event == "GET_ITEM_INFO_RECEIVED" then
         if f and f:IsShown() and S.mode and S.mode ~= "preview" then

@@ -22,7 +22,7 @@ local function defaults()
         enemy = true, friendly = true, hidePlate = true,
         uTarget = true, uFocus = true, uToT = true, uFoT = true,
         sTarget = 100, sFocus = 90, sToT = 75, sFoT = 75,
-        portrait = true, classIcon = true, power = true, rareBorder = true, rareSize = 100, rareX = 0, rareY = 0,
+        portrait = true, showLevel = true, finisher = true, classButtons = true, classIcon = true, power = true, rareBorder = true, rareSize = 100, rareX = 0, rareY = 0,
         width = 150, y = 4, nameSize = 12,
         hpText = "percent", powText = "percent", textSize = 10, powTextSize = 8, powH = 8,
         barRound = "medium", barGap = 4, skinTex = { tex = "none", texA = 50 },
@@ -162,6 +162,76 @@ local function questProgress(unit)
     end)
     if ok then return text end
     return nil
+end
+
+-- Estimated damage of your finishing move at the combo points you have: Eviscerate for rogues, Ferocious Bite for druids in
+-- cat form. The game's own spell text already has your attack power and bonuses worked into its numbers, so the estimate
+-- is read from that text (a list line such as "3 points : 12,345 damage" when it has one) and nothing is shown when
+-- the text has no numbers to read. It does not include critical strikes or the target's armour.
+local FINISHERS = { ROGUE = { 196819, "Evis" }, DRUID = { 22568, "Bite" } }
+local CAT_FORM = 1
+local finCache = { id = nil, text = nil, at = 0 }
+
+local function digits(str)
+    return tonumber((tostring(str or ""):gsub("%D", "")))
+end
+
+-- text, points -> estimated damage or nil
+local function parseFinisher(text, points, rogue)
+    if type(text) ~= "string" or text == "" then return nil end
+    -- a list with one line per number of points
+    for at, num in text:gmatch("(%d+)[^%d:\n]-:%s*(%d[%d%.,%s]*%d)") do
+        if tonumber(at) == points then return digits(num) end
+    end
+    -- otherwise the rogue's text names one number, which is the damage for each point
+    if rogue then
+        local num = text:match("(%d[%d%.,]*%d%d%d)")
+        local per = digits(num)
+        if per and per >= 100 then return per * points end
+    end
+    return nil
+end
+
+local function shortNumber(n)
+    if n >= 1000000 then return ("%.1fM"):format(n / 1000000) end
+    if n >= 1000 then return ("%.1fK"):format(n / 1000) end
+    return tostring(math.floor(n))
+end
+
+local function finisherText()
+    local _, cls = UnitClass("player")
+    local fin = FINISHERS[cls]
+    if not fin then return nil end
+    if cls == "DRUID" then
+        local okF, form = pcall(GetShapeshiftFormID)
+        if not okF or plain(form) ~= CAT_FORM then return nil end
+    end
+    local okP, pts = pcall(UnitPower, "player", (Enum and Enum.PowerType and Enum.PowerType.ComboPoints) or 4)
+    pts = okP and plain(pts) or nil
+    if type(pts) ~= "number" or pts < 1 then return nil end
+    if IsPlayerSpell and not IsPlayerSpell(fin[1]) then return nil end
+    local now = GetTime()
+    if finCache.id ~= fin[1] or now - finCache.at > 2 then
+        local okD, desc = pcall(C_Spell.GetSpellDescription, fin[1])
+        finCache.id, finCache.text, finCache.at = fin[1], okD and plain(desc) or nil, now
+    end
+    local dmg = parseFinisher(finCache.text, pts, cls == "ROGUE")
+    if not dmg then return nil end
+    return "~" .. shortNumber(dmg)
+end
+
+-- /ubfinisher: what the game's spell text says and what was read from it (to fix the reading if it is off)
+SLASH_UBERMOCFINISHER1 = "/ubfinisher"
+SlashCmdList["UBERMOCFINISHER"] = function()
+    local _, cls = UnitClass("player")
+    local fin = FINISHERS[cls]
+    if not fin then print("Ubermoc UI: the finisher estimate is for rogues and druids in cat form."); return end
+    local okD, desc = pcall(C_Spell.GetSpellDescription, fin[1])
+    desc = okD and plain(desc) or nil
+    print("Ubermoc UI finisher text: " .. tostring(desc and desc:gsub("\n", " | ")))
+    local okP, pts = pcall(UnitPower, "player", (Enum and Enum.PowerType and Enum.PowerType.ComboPoints) or 4)
+    pts = okP and plain(pts) or 0
+    print("combo points: " .. tostring(pts) .. ", read: " .. tostring(parseFinisher(desc, tonumber(pts) or 0, cls == "ROGUE")) .. ", shown: " .. tostring(finisherText()))
 end
 
 ----------------------------------------------------------------------
@@ -370,10 +440,27 @@ local function newFrame(name, level)
     f.role:SetTexture(ROLES)
     f.role:SetPoint("TOPLEFT", 2, -2); f.role:SetPoint("BOTTOMRIGHT", -2, 2)
     f.roleF:Hide()
+    -- Level badge: a small dark disc on the portrait's bottom right.
+    f.lvlF = CreateFrame("Frame", nil, f)
+    f.lvlF:SetFrameLevel(f:GetFrameLevel() + 6)
+    f.lvlF:SetSize(17, 17)
+    f.lvlBack = f.lvlF:CreateTexture(nil, "BACKGROUND")
+    f.lvlBack:SetTexture(RING)
+    f.lvlBack:SetAllPoints()
+    f.lvlBack:SetVertexColor(0.04, 0.045, 0.07, 1)
+    f.lvlText = f.lvlF:CreateFontString(nil, "OVERLAY")
+    f.lvlText:SetPoint("CENTER", 0, 0)
+    f.lvlText:SetShadowOffset(0, 0)
+    f.lvlF:Hide()
     f.name = f:CreateFontString(nil, "OVERLAY")
     f.name:SetJustifyH("LEFT")
     f.name:SetShadowOffset(0, 0)
     f.hp = bar(f, 14)
+    f.finText = f.hp.sb:CreateFontString(nil, "OVERLAY")
+    f.finText:SetShadowOffset(0, 0)
+    f.finText:SetTextColor(1, 0.82, 0.1)
+    f.finText:SetPoint("RIGHT", f.hp.sb, "RIGHT", -4, 0)
+    f.finText:Hide()
     f.questIcon:SetPoint("LEFT", f.hp.sb, "RIGHT", 8, 0)
     f.pw = bar(f, 7)
     f.cb = bar(f, 14)
@@ -490,6 +577,8 @@ local function layoutFrame(f)
         f.portPat:ClearAllPoints(); f.portPat:SetAllPoints(f.port)
         f.cc:ClearAllPoints(); f.cc:SetPoint("CENTER", f.ring, "CENTER"); f.cc:SetSize(40, 40)
         f.roleF:ClearAllPoints(); f.roleF:SetPoint("TOPLEFT", f.ring, "TOPLEFT", -3, 3); f.roleF:SetSize(17, 17)
+        f.lvlF:ClearAllPoints(); f.lvlF:SetPoint("CENTER", f.ring, "CENTER", ringSize * 0.34, -ringSize * 0.34)
+        f.lvlText:SetFont(font(), 9, "OUTLINE")
         pw = 50
     else
         f.cc:ClearAllPoints(); f.cc:SetPoint("RIGHT", f, "LEFT", -4, 0); f.cc:SetSize(30, 30)
@@ -504,6 +593,7 @@ local function layoutFrame(f)
     f.name:SetWordWrap(false)
     local ts = d.textSize or 10
     f.hp.text:SetFont(font(), ts, "OUTLINE")
+    f.finText:SetFont(font(), ts, "OUTLINE")
     local ph = math.max(3, d.powH or 8)
     f.pw.text:SetFont(font(), d.powTextSize or math.max(6, ts - 2), "OUTLINE")
     -- The resource bar hangs barGap below the health bar (4 puts their rims side by side, the starting look).
@@ -1244,6 +1334,15 @@ local function fill(f, unit, d, label)
         f.qpAt = nil
         f.questText:Hide()
     end
+    -- the finishing move's estimate over the target's health bar (rogue, or druid in cat form)
+    do
+        local fin
+        if unit == "target" and not f.fixed and d.finisher ~= false and f.hp.sb:IsShown() then
+            local okA, atk = pcall(UnitCanAttack, "player", unit)
+            if okA and plain(atk) then fin = finisherText() end
+        end
+        if fin then f.finText:SetText(fin); f.finText:Show() else f.finText:Hide() end
+    end
     local okC, conn = pcall(UnitIsConnected, unit)
     local offline = okC and plain(conn) == false
     local okD, dead = pcall(UnitIsDeadOrGhost, unit)
@@ -1275,6 +1374,30 @@ local function fill(f, unit, d, label)
     end
     local rc = role and ROLE_COORDS[role]
     if rc then f.role:SetTexCoord(rc[1], rc[2], rc[3], rc[4]); f.roleF:Show() else f.roleF:Hide() end
+    -- the unit's level on the portrait's bottom right (enemies in their difficulty colour, "??" for a skull)
+    do
+        local lv
+        if not f.raid and d.portrait and d.showLevel ~= false then
+            if label then lv = 70 else
+                local okL, v = pcall(UnitLevel, unit)
+                lv = okL and plain(v) or nil
+            end
+        end
+        if type(lv) == "number" then
+            local r, g, b = 1, 0.82, 0.1
+            local okA, atk = pcall(UnitCanAttack, "player", unit)
+            if okA and plain(atk) and not label then
+                local fn = GetCreatureDifficultyColor or GetQuestDifficultyColor
+                local okC, col = pcall(fn, lv > 0 and lv or 255)
+                if okC and type(col) == "table" then r, g, b = col.r, col.g, col.b end
+            end
+            f.lvlText:SetText(lv > 0 and lv or "??")
+            f.lvlText:SetTextColor(r, g, b)
+            f.lvlF:Show()
+        else
+            f.lvlF:Hide()
+        end
+    end
     local alpha = 1
     if f.fixed and f.unit ~= "player" and f.unit ~= "pet" and not label then
         if offline then
@@ -1548,8 +1671,11 @@ local function park(f, on, reparent)
 end
 local function holdGame(d)
     park(_G.FocusFrameToT or (_G.FocusFrame and _G.FocusFrame.totFrame), d.uFoT and true or false, false)
-    park(_G.PartyFrame, d.partyFloat and true or false, true)
-    park(_G.CompactPartyFrame, d.partyFloat and true or false, true)
+    -- Not moved to another parent: the game's party frames run their own updates on secret health and mana values,
+    -- and frames the addon has taken apart make that code count as the addon's ("execution tainted"), which the
+    -- game refuses. Their look is all that is touched (invisible, mouse off).
+    park(_G.PartyFrame, d.partyFloat and true or false, false)
+    park(_G.CompactPartyFrame, d.partyFloat and true or false, false)
     park(_G.CompactRaidFrameContainer, d.raidFloat and true or false, false)
 end
 -- The halo code puts the game's frames back (or hides them) when it lays its frames out.
@@ -1823,6 +1949,7 @@ local function lookSections(S, unit)
     end
     S.head("Look")
     S.check("Round portrait", "portrait")
+    S.check("Show the unit's level on the portrait", "showLevel", 48)
     S.check("Class icon instead of the portrait on players", "classIcon", 48)
     S.check("Elite / rare / boss border around the portrait", "rareBorder", 48)
     S.slider("Elite / rare border size", "rareSize", 30, 250, pct)
@@ -1840,6 +1967,8 @@ local function lookSections(S, unit)
         S.head("Class resource (every frame)")
         S.note("Combo points (rogue, druid) on your target's frame; holy power, soul shards, chi, arcane charges, essence or runes on your player frame. The cast bar and auras move down to make room.")
         S.check("Show the class resource", "resOn")
+        if unit == "target" then S.check("Estimated Eviscerate / Ferocious Bite damage on the health bar", "finisher") end
+        if unit == "player" then S.check("Class ability buttons above the portrait (stances, forms, Stealth, Vanish)", "classButtons") end
         S.seg("Combo points on", "resCombo", { { "target", "Target frame", 100 }, { "player", "Player frame", 100 }, { "both", "Both", 60 } })
         S.seg("Shape", "resShape", { { "dots", "Dots", 70 }, { "segments", "Segments", 90 } })
         S.slider("Size", "resSize", 4, 30, px)

@@ -2621,6 +2621,8 @@ function UbermocUIAPI.makeMoverFrame(m)
     end
     -- the controller pointer can pick it up and carry it with the D-pad
     f.ubMover = true
+    UbermocUIAPI.moverFrames = UbermocUIAPI.moverFrames or {}
+    UbermocUIAPI.moverFrames[#UbermocUIAPI.moverFrames + 1] = f
     f.ubReport = function() report(f) end
     f:SetScript("OnUpdate", function(self, dt)
         if not self.dragging then return end
@@ -5425,7 +5427,7 @@ local function updatePlate(plate)
     -- plate keeps none of them.
     if unit and UbermocUIAPI.floatingTargetOn and UbermocUIAPI.floatingTargetOn() then
         local okT, isT = pcall(UnitIsUnit, unit, "target")
-        if okT and isT == true then want.quest, want.elite, want.rare = false, false, false end
+        if okT and not (issecretvalue and issecretvalue(isT)) and isT then want.quest, want.elite, want.rare = false, false, false end
     end
     local set = indicators[plate]
     if not set then set = {}; indicators[plate] = set end
@@ -7951,6 +7953,9 @@ ev:SetScript("OnEvent", function(_, event, arg1)
         return
     elseif event == "PLAYER_TARGET_CHANGED" then
         restylePlates()
+        -- the new target's plate drops its quest / elite / rare icons (the floating frame draws them) and the old
+        -- target's plate gets them back
+        updateAllPlates()
     elseif QUEST_EVENTS[event] then
         -- these come in bursts: one plate update for the whole burst
         if not Q.quest then

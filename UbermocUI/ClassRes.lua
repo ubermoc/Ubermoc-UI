@@ -44,7 +44,11 @@ function API.resOnFrame(unit)
     if not R or not specOk(R) then return false end
     local where = d.resCombo or "target"
     if R.combo then
-        if unit == "target" then return where ~= "player" end
+        if unit == "target" then
+            -- The combo points page wraps them around the target frame's portrait instead; they are not shown twice.
+            if API.comboOnFloat and API.comboOnFloat() then return false end
+            return where ~= "player"
+        end
         if unit == "player" then return where ~= "target" end
         return false
     end

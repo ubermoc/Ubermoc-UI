@@ -397,7 +397,8 @@ local function newRing(key, title, cfgKey)
         elseif s.t == "micro" and snap and not InCombatLockdown() then
             microFallback(s, snap)
         end
-        if s.t == "micro" or s.t == "bags" then cursorToPage() end
+        -- the game's windows belong to the game cursor (PadCursor.lua), which needs no help getting onto them
+        if (s.t == "micro" or s.t == "bags") and not (API.padCursor and API.padCursor.engineOn and API.padCursor.engineOn()) then cursorToPage() end
     end)
     tog:HookScript("PreClick", function(_, _, down)
         if not down then r.microSnap = microSnap() end
@@ -2770,6 +2771,8 @@ end
 
 local function buildItemMenu()
     local m = CreateFrame("Frame", "UbermocCursorMenu", UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
+    -- A menu opened from the game-cursor windows (PadCursor.lua) hands them back to it when it closes.
+    m:HookScript("OnHide", function() if API.padYield and API.cursorEnd and C_Timer then C_Timer.After(0, API.cursorEnd) end end)
     m:SetFrameStrata("FULLSCREEN_DIALOG")
     m:SetFrameLevel(100)
     m:SetClampedToScreen(true)
@@ -3209,6 +3212,7 @@ do
 end
 
 local function deactivate()
+    API.padYield = false   -- the game-cursor menus (PadCursor.lua) may take the windows again
     if not cursor.active then return end
     if cursor.grab then pcall(dropGrab) end
     if keyboard and keyboard:IsShown() then keyboard:Hide() end
@@ -3229,11 +3233,21 @@ local function gamepadOn()
     return ok and v and true or false
 end
 
+API.cursorEnd = function() if API.padYield then deactivate() end end
+API.cursorDeactivate = function() deactivate() end
+-- True while the drawn pointer is up; the game-cursor menus (PadCursor.lua) stay out of its way.
+API.cursorPointerActive = function() return cursor.active end
+-- True while one of the game's pop-up menus (right-click menus and the like) is open: the drawn pointer owns those.
+API.cursorMenuOpen = function() return openMenuRoot() ~= nil end
+
 activate = function(manual)
     if not DB or not DB.cursor.on then return false, "off" end
     if not cursor.frame then return false, "not built" end
     if InCombatLockdown() then return false, "combat" end
     if cursor.active then return true end
+    -- The game's windows (bags, menu panels, the game's options) belong to the game-cursor menus (PadCursor.lua);
+    -- the drawn pointer is for Ubermoc UI's own windows, and for everything when /ubcursor engine pointer is set.
+    if API.padCursor and API.padCursor.Wants and API.padCursor.Wants() then return false, "game cursor" end
     if not manual and not gamepadOn() then return false, "no gamepad" end
     local nodes = collect()
     if #nodes == 0 then return false, "no buttons found" end
@@ -3269,6 +3283,49 @@ API.cursorToMenu = function()
         refreshNodes()
         if cursor.cur ~= best then leaveNode(cursor.cur); cursor.cur = nil; focus(best) end
     end
+end
+
+-- Puts the pointer on the first button inside `root` (a pop-up of our own window that has just opened: the button
+-- editor, the bind dialog), so it does not stay on the button that opened it.
+API.cursorSnapInto = function(root)
+    if not root then return end
+    C_Timer.After(0.06, function()
+        if not cursor.active or InCombatLockdown() then return end
+        refreshNodes()
+        local best, by, bx
+        for _, n in ipairs(cursor.nodes) do
+            local ok, inside = pcall(function() return n == root or (n.IsDescendantOf and n:IsDescendantOf(root)) end)
+            if ok and inside and n.IsVisible and n:IsVisible() then
+                local x, y = n:GetCenter()
+                if x and y and (not by or y > by + 2 or (math.abs(y - by) <= 2 and x < bx)) then best, by, bx = n, y, x end
+            end
+        end
+        if best and cursor.cur ~= best then leaveNode(cursor.cur); cursor.cur = nil; focus(best) end
+    end)
+end
+
+-- The Y button over a bag slot or a spell while the game-cursor menus (PadCursor.lua) have the window: the drawn pointer
+-- takes over for the options menu (use, sell, delete, disenchant, and the spell menu) and hands the window back when
+-- it closes.
+API.cursorItemMenuFrom = function(frame)
+    if InCombatLockdown() or not (DB and DB.cursor and DB.cursor.on) then return false end
+    local target
+    local f = frame
+    for _ = 1, 5 do
+        if not f or f == WorldFrame then break end
+        if itemSlot(f) or spellOf(f) then target = f; break end
+        f = f.GetParent and f:GetParent() or nil
+    end
+    if not target then return false end
+    API.padYield = true
+    local ok = activate(true)
+    if not ok or not cursor.active then API.padYield = false; return false end
+    local onNode
+    for _, n in ipairs(cursor.nodes) do if n == target then onNode = true; break end end
+    if not onNode then deactivate(); return false end
+    focus(target)
+    openItemMenu()
+    return true
 end
 
 local function padAction(act)
@@ -3650,7 +3707,8 @@ function API.cursorReport()
     end
 end
 
-SlashCmdList["UBERMOCCURSOR"] = function()
+SlashCmdList["UBERMOCCURSOR"] = function(msg)
+    if API.padCursor and API.padCursor.Command and API.padCursor.Command(msg) then return end
     API.cursorReport()
     UbermocUI_CursorToggle()
 end

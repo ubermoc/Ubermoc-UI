@@ -1,3 +1,20 @@
+UbermocUI 1.0.117
+- New: bags, the game's menu panels and the game's own options now move the game's own cursor, like Ubermoc Forever. The D-pad jumps between buttons, A and X click, the bumpers switch tabs, the triggers scroll, B goes back, and everything closes by itself when combat starts. Question windows, frame moving and the Y item menu keep the old pointer.
+- New: a row of small buttons above your player portrait for Stealth, Vanish and your class's forms and stances (the game's stance bar), in the game's own button art. It stays centred and shows all the time.
+- New: Stealth, forms and stances are placed on the left trigger's bar the first time you learn them.
+- New: combo points as a number on the top edge of the floating portrait, now the default, with left / right and up / down sliders. At zero points nothing shows, and the floating frame no longer shows a second straight row.
+- New: the unit's level on the portrait of the floating frames.
+- New: an estimate of Eviscerate (rogue) or Ferocious Bite (druid in cat form) damage on the enemy floating frame's health bar. /ubfinisher shows what it reads.
+- New: the quest icon on the floating target frame shows the objective progress next to it.
+- Changed: binds to a bar slot show the spell, item or macro on that slot instead of the slot's name.
+- Changed: the Start button works in steps like Esc: it closes windows, clears the target and stops a cast, then opens the game menu on the next press.
+- Changed: the aiming dot is on by default for ground spells.
+- Fixed: the nameplate quest icon no longer shows on your target as well as on the floating frame.
+- Fixed: combo points showed twice on the target.
+- Fixed: after accepting one quest from an NPC with several, the game kept the conversation open with nothing on screen. The dialogue now comes back, or the game's own window is shown if ours cannot be drawn.
+- Fixed: the pointer now moves onto the binding area when you start binding a button, and the bind dialog closes when combat starts.
+- Fixed: "tainted by UbermocUI" errors from the game's party frames and stance bar. They are no longer moved to another parent.
+
 UbermocUI 1.0.116
 - Changed: the Start button now works in steps like Esc on a keyboard. The first press closes open windows, clears the target and stops a cast, and the next press opens the game menu. It no longer loses a press, and in combat it only clears the target and stops the cast.
 - Fixed: combo points showed twice on the target. The nameplate points now only show when the floating target frame is not already showing them.

@@ -392,8 +392,59 @@ local function emulatorOf(mod) -- the pad button that stands in for a keyboard m
     end
 end
 
+-- What is on an action bar slot right now, for a bind that points at one (a main bar or extra bar button, as a bar
+-- command or a click on its button): the spell, item or macro name. A bind to a slot always means that place, so the
+-- name of the place says nothing; what is in it is what the player wants to see. nil when cmd is not a bar button.
+local BAR_BUTTONS = { "MultiBarBottomLeft", "MultiBarBottomRight", "MultiBarRight", "MultiBarLeft", "MultiBar5", "MultiBar6", "MultiBar7" }
+local BAR_TITLES = { [0] = "Main bar", "Bottom left bar", "Bottom right bar", "Right bar", "Right bar 2", "Action bar 5", "Action bar 6", "Action bar 7" }
+local function barButton(cmd)
+    local n = cmd:match("^ACTIONBUTTON(%d+)$")
+    if n then return 0, tonumber(n) end
+    local b, i = cmd:match("^MULTIACTIONBAR(%d+)BUTTON(%d+)$")
+    if b then return tonumber(b), tonumber(i) end
+    local frame = cmd:match("^CLICK ([^:]+)")
+    if frame then
+        n = frame:match("^ActionButton(%d+)$")
+        if n then return 0, tonumber(n) end
+        for bar, name in ipairs(BAR_BUTTONS) do
+            i = frame:match("^" .. name .. "Button(%d+)$")
+            if i then return bar, tonumber(i) end
+        end
+    end
+end
+local function slotName(cmd)
+    local bar, i = barButton(cmd)
+    if not bar then return nil end
+    local btn = (bar == 0 and _G["ActionButton" .. i]) or _G[BAR_BUTTONS[bar] .. "Button" .. i]
+    local act = btn and btn.action
+    local name
+    if type(act) == "number" and HasAction and HasAction(act) then
+        local okI, kind, id = pcall(GetActionInfo, act)
+        if okI and id then
+            if kind == "spell" or kind == "flyout" then
+                local okS, info = pcall(C_Spell.GetSpellInfo, id)
+                name = okS and type(info) == "table" and info.name or nil
+            elseif kind == "item" then
+                local okN, nm = pcall(C_Item.GetItemNameByID, id)
+                name = okN and nm or nil
+            elseif kind == "macro" then
+                local okM, nm = pcall(GetMacroInfo, id)
+                name = okM and nm or nil
+            elseif kind == "summonmount" then
+                local okM, nm = pcall(C_MountJournal.GetMountInfoByID, id)
+                name = okM and nm or nil
+            end
+        end
+        name = name or "Something"
+    end
+    if name then return name end
+    return "|cff888888Empty slot (" .. (BAR_TITLES[bar] or "bar") .. " " .. i .. ")|r"
+end
+
 local function actionName(cmd)
     if not cmd or cmd == "" then return "Nothing" end
+    local onBar = slotName(cmd)
+    if onBar then return onBar end
     if cmd == "TOGGLEGAMEMENU" then return "Game menu (Escape)" end
     if cmd == MENU_BIND then return "Game menu (Start)" end
     local kind, what = cmd:match("^(%u+) (.+)$")
@@ -803,7 +854,7 @@ local function build()
         d.ring:SetSize(19, 19)
         d.ring:SetPoint("CENTER")
         d.ring:SetVertexColor(1, 0.82, 0)
-        d:SetScript("OnClick", function() selected = key; popOpen = true; refreshAll() end)
+        d:SetScript("OnClick", function() selected = key; popOpen = true; refreshAll(); if API.cursorSnapInto and API.padEditorPop then API.cursorSnapInto(API.padEditorPop) end end)
         d:SetScript("OnEnter", function(self)
             if GameTooltip then
                 GameTooltip:SetOwner(self, "ANCHOR_TOP")
@@ -837,7 +888,7 @@ local function build()
         p.line2 = stageBox:CreateLine(nil, "ARTWORK")
         p.line2:SetThickness(1.5)
         p.line2:SetColorTexture(0.42, 0.5, 0.7, 0.75)
-        p:SetScript("OnClick", function() selected = key; popOpen = true; refreshAll() end)
+        p:SetScript("OnClick", function() selected = key; popOpen = true; refreshAll(); if API.cursorSnapInto and API.padEditorPop then API.cursorSnapInto(API.padEditorPop) end end)
         pills[key] = p
         return p
     end
@@ -921,6 +972,7 @@ local function build()
     pop:SetClampedToScreen(true)
     pop:EnableMouse(true)
     pop:Hide()
+    API.padEditorPop = pop   -- (the controller buttons above are made first, so they reach it through the API)
     do
         local rim = pop:CreateTexture(nil, "BACKGROUND", nil, -2)
         rim:SetPoint("TOPLEFT", -2, 2); rim:SetPoint("BOTTOMRIGHT", 2, -2)
@@ -1144,6 +1196,16 @@ local function build()
     end
     dCancel:SetScript("OnClick", function() closeDialog() end)
     dKeep:SetScript("OnClick", function() closeDialog() end)
+    -- Combat starts: bindings cannot be changed in combat, so the bind dialog (opened from the spellbook's Bind, say)
+    -- and the button editor close instead of staying up over the fight.
+    do
+        local combat = CreateFrame("Frame")
+        combat:RegisterEvent("PLAYER_REGEN_DISABLED")
+        combat:SetScript("OnEvent", function()
+            if cap:IsShown() or mode then pcall(closeDialog) end
+            if pop:IsShown() then popOpen = false; pop:Hide() end
+        end)
+    end
     cap:SetScript("OnUpdate", function(self, dt)
         if not mode then return end
         timeLeft = timeLeft - dt
@@ -1173,6 +1235,7 @@ local function build()
             chips[1]:SetWidth(380)
             chips[1]:ClearAllPoints(); chips[1]:SetPoint("CENTER", dChipsHolder, "CENTER", 0, 0)
             chips[1].text:SetWidth(360); chips[1].text:SetWordWrap(false)
+            if API.cursorSnapInto and cap:GetParent() ~= UIParent then API.cursorSnapInto(cap) end
             dReplace:SetText("Replace  [" .. padLabel("PAD1", true) .. "]")
             dReplace:SetScript("OnClick", function()
                 if InCombatLockdown() then
@@ -1203,6 +1266,7 @@ local function build()
         cap:Show()
         cap:EnableKeyboard(true)
         cap:EnableGamePadButton(true)
+        if API.cursorSnapInto and cap:GetParent() ~= UIParent then API.cursorSnapInto(cap) end
     end
     -- Also used from the spellbook (Bind): the same dialog, shown over the whole screen.
     API.captureBind = function(cmd)

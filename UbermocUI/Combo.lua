@@ -3,7 +3,8 @@
 -- in part, without the written permission of the author. See LICENSE.txt.
 ----------------------------------------------------------------------
 -- Ubermoc UI: combo points
--- Dots in an arc over the top of the target halo frame, and dots or a number on the target's
+-- Dots wrapped around the left of the floating target frame's portrait (or in an arc over the target halo frame),
+-- and dots or a number on the target's
 -- nameplate. Sizes, gaps, positions and colours are all adjustable.
 ----------------------------------------------------------------------
 local API = UbermocUIAPI
@@ -15,7 +16,7 @@ local ENERGY = (Enum and Enum.PowerType and Enum.PowerType.Energy) or 3
 
 local function defaults()
     return {
-        halo = { on = true, size = 10, gap = 4, dist = 4, r = 1, g = 0.82, b = 0.1, er = 0.12, eg = 0.12, eb = 0.15, ea = 0.9,
+        halo = { on = true, mode = "number", nsize = 18, nx = 0, ny = 0, size = 10, gap = 4, dist = 4, r = 1, g = 0.82, b = 0.1, er = 0.12, eg = 0.12, eb = 0.15, ea = 0.9,
                  cr = 0.3, cg = 0.75, cb = 1 },
         plate = { on = true, mode = "dots", pos = "TOP", size = 8, gap = 3, x = 0, y = 4, nsize = 16,
                   r = 1, g = 0.82, b = 0.1, er = 0.12, eg = 0.12, eb = 0.15, ea = 0.9, cr = 0.3, cg = 0.75, cb = 1 },
@@ -36,6 +37,11 @@ local function DB()
     return d
 end
 API.comboDB = DB
+-- True while the combo points are set to wrap around the floating target frame's portrait; that frame then has no
+-- combo row of its own under its bars (ClassRes.lua).
+API.comboOnFloat = function()
+    return DB().halo.on and API.floatingTargetOn and API.floatingTargetOn() and true or false
+end
 
 local function isSecret(v) return issecretvalue and issecretvalue(v) end
 local testing = false
@@ -91,13 +97,15 @@ local function hideDots(f, from)
     for i = from, #f.dots do f.dots[i].rim:Hide(); f.dots[i].fill:Hide() end
 end
 
--- Arc over the top of a round frame (centre `anchor`, radius `rad`), first point on the left.
-local function drawArc(f, anchor, rad, c, cur, mx, charged)
+-- Arc over the top of a round frame (centre `anchor`, radius `rad`), first point on the left. With `left` it wraps
+-- around the left-hand side instead, the first point at the top and the last at the bottom.
+local function drawArc(f, anchor, rad, c, cur, mx, charged, left)
+    if f.num then f.num:Hide() end
     local R = rad + c.dist + c.size / 2
     local step = (c.size + c.gap) / math.max(1, R)
     for i = 1, mx do
         local d = dot(f, i)
-        local a = math.pi / 2 + ((mx + 1) / 2 - i) * step
+        local a = left and (math.pi - ((mx + 1) / 2 - i) * step) or (math.pi / 2 + ((mx + 1) / 2 - i) * step)
         local x, y = R * math.cos(a), R * math.sin(a)
         d.rim:ClearAllPoints(); d.rim:SetPoint("CENTER", anchor, "CENTER", x, y); d.rim:SetSize(c.size + 2, c.size + 2)
         d.fill:ClearAllPoints(); d.fill:SetPoint("CENTER", anchor, "CENTER", x, y); d.fill:SetSize(c.size, c.size)
@@ -105,6 +113,25 @@ local function drawArc(f, anchor, rad, c, cur, mx, charged)
         d.rim:Show(); d.fill:Show()
     end
     hideDots(f, mx + 1)
+end
+
+-- The points as one number centred on the top edge of `anchor` (the portrait's border, on the floating frame), moved by
+-- the left / right and up / down settings.
+local function drawNumber(f, anchor, c, cur, charged)
+    hideDots(f, 1)
+    if not f.num then
+        f.num = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
+        f.num:SetShadowOffset(0, 0)
+    end
+    pcall(f.num.SetFont, f.num, STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", c.nsize or 18, "OUTLINE")
+    f.num:ClearAllPoints()
+    f.num:SetPoint("CENTER", anchor, "TOP", c.nx or 0, c.ny or 0)
+    local any = false
+    for i = 1, cur do if charged[i] then any = true end end
+    if any then f.num:SetTextColor(c.cr, c.cg, c.cb) elseif cur > 0 then f.num:SetTextColor(c.r, c.g, c.b) else f.num:SetTextColor(c.er, c.eg, c.eb) end
+    f.num:SetText(cur)
+    f.num:SetAlpha(cur > 0 and 1 or 0)   -- invisible at zero points, fully shown from the first one
+    f.num:Show()
 end
 
 -- Straight row (or a number) beside `anchor` on side c.pos.
@@ -124,6 +151,7 @@ local function drawRow(f, anchor, c, cur, mx, charged)
         for i = 1, cur do if charged[i] then any = true end end
         if any then f.num:SetTextColor(c.cr, c.cg, c.cb) elseif cur > 0 then f.num:SetTextColor(c.r, c.g, c.b) else f.num:SetTextColor(c.er, c.eg, c.eb) end
         f.num:SetText(cur)
+        f.num:SetAlpha(cur > 0 and 1 or 0)   -- invisible at zero points, fully shown from the first one
         f.num:Show()
         return
     end
@@ -160,6 +188,9 @@ haloF:SetFrameStrata("LOW")
 haloF:SetFrameLevel(60)
 haloF:SetAllPoints(UIParent)
 haloF:EnableMouse(false)
+local floatF = CreateFrame("Frame", "UbermocComboFloat", UIParent)
+floatF:SetFrameStrata("LOW")
+floatF:EnableMouse(false)
 local plateF = CreateFrame("Frame", "UbermocComboPlate", UIParent)
 plateF:SetAllPoints(UIParent)
 plateF:EnableMouse(false)
@@ -176,18 +207,40 @@ local function update()
     if not UbermocUIDB then return end
     local d = DB()
     local cur, mx, charged = values()
+    -- nothing at all shows at zero points (dots, empty dots and numbers alike); the first point brings it all in
+    if cur and cur <= 0 then cur = nil end
+    -- The floating target frame: the points wrap around the left-hand side of its portrait. It comes first, so the
+    -- halo frame and the nameplate never show the points a second time.
+    local ff = cur and d.halo.on and API.floatFrame and API.floatFrame("target")
+    local ring = ff and ff.IsShown and ff:IsShown() and ff.ring
+    if ring and not ring:IsShown() then ring = nil end
+    if ring then
+        if floatF:GetParent() ~= ff then floatF:SetParent(ff); floatF:SetAllPoints(ff); floatF:SetFrameLevel(ff:GetFrameLevel() + 12) end
+        if d.halo.mode ~= "dots" then
+            drawNumber(floatF, ring, d.halo, cur, charged)
+        else
+            drawArc(floatF, ring, (ring:GetWidth() or 0) / 2, d.halo, cur, mx, charged, true)
+        end
+        floatF:Show()
+    else
+        floatF:Hide()
+    end
     -- Halo frame
     local hf, rad
-    if cur and d.halo.on and API.haloFrame then hf, rad = API.haloFrame("target") end
+    if cur and d.halo.on and not ring and API.haloFrame then hf, rad = API.haloFrame("target") end
     if hf then
         if haloF:GetParent() ~= hf then haloF:SetParent(hf); haloF:SetAllPoints(hf); haloF:SetFrameLevel(hf:GetFrameLevel() + 12) end
-        drawArc(haloF, hf, rad, d.halo, cur, mx, charged)
+        if d.halo.mode ~= "dots" then
+            drawNumber(haloF, hf, d.halo, cur, charged)
+        else
+            drawArc(haloF, hf, rad, d.halo, cur, mx, charged)
+        end
         haloF:Show()
     else
         haloF:Hide()
     end
     -- Nameplate: only when the halo frame is not already showing the points, so they never show twice
-    local plate = cur and d.plate.on and not hf and C_NamePlate and C_NamePlate.GetNamePlateForUnit and C_NamePlate.GetNamePlateForUnit("target")
+    local plate = cur and d.plate.on and not hf and not ring and C_NamePlate and C_NamePlate.GetNamePlateForUnit and C_NamePlate.GetNamePlateForUnit("target")
     local anchor = plate and plateAnchor(plate)
     if anchor then
         if plateF:GetParent() ~= plate then
@@ -333,8 +386,17 @@ local function buildPage()
         y = y - 38
     end
 
-    header("On the target halo frame")
-    check("halo", "on", "Dots in an arc over the top of the target halo frame")
+    header("On the floating target frame and the target halo frame")
+    check("halo", "on", "Combo points on the floating frame's portrait, or over the halo frame")
+    API.newLabel(sc, "Show as", 30, y - 4)
+    local haloMode = API.segRow(sc, 208, y, { { "dots", "Dots in an arc", 110 }, { "number", "A number", 90 } },
+        function() return DB().halo.mode ~= "dots" and "number" or "dots" end,
+        function(v) DB().halo.mode = v; panel.refresh() end)
+    ctl.halomode = haloMode
+    y = y - 40
+    slider("halo", "nsize", "Number size", 8, 48)
+    slider("halo", "nx", "Number left / right", -100, 100)
+    slider("halo", "ny", "Number up / down", -100, 100)
     slider("halo", "size", "Dot size", 4, 40)
     slider("halo", "gap", "Gap between dots", 0, 30)
     slider("halo", "dist", "Distance from the frame", -20, 60)
@@ -384,13 +446,17 @@ local function buildPage()
                 end
             end
         end
-        modeBtn.refresh(); posBtn.refresh()
+        modeBtn.refresh(); posBtn.refresh(); haloMode.refresh()
         test:SetChecked(testing)
         local hOn, pOn = d.halo.on, d.plate.on
         for k, w in pairs(ctl) do
             if k ~= "haloon" and k ~= "plateon" then
                 local isHalo = k:sub(1, 4) == "halo"
                 local on = isHalo and hOn or (not isHalo and pOn)
+                if hOn and isHalo then
+                    if d.halo.mode ~= "dots" and (k == "halosize" or k == "halogap" or k == "halodist") then on = false end
+                    if d.halo.mode == "dots" and (k == "halonsize" or k == "halonx" or k == "halony") then on = false end
+                end
                 if pOn and not isHalo then
                     if d.plate.mode == "number" and (k == "platesize" or k == "plategap") then on = false end
                     if d.plate.mode ~= "number" and k == "platensize" then on = false end
@@ -399,9 +465,13 @@ local function buildPage()
             end
         end
         -- Preview
-        if hOn then drawArc(pvArc, ring, 48, d.halo, 3, 5, { [2] = true }); pvArc:Show() else pvArc:Hide() end
+        if hOn then
+            if d.halo.mode ~= "dots" then drawNumber(pvArc, ring, d.halo, 3, { [2] = true }) else drawArc(pvArc, ring, 48, d.halo, 3, 5, { [2] = true }) end
+            pvArc:Show()
+        else pvArc:Hide() end
         if pOn then drawRow(pvRow, hb, d.plate, 3, 5, { [2] = true }); pvRow:Show() else pvRow:Hide() end
         pcall(update)
+        if API.targetFrameRefresh then pcall(API.targetFrameRefresh) end
         if API.refreshNpPreview then pcall(API.refreshNpPreview) end
     end
     panel:SetScript("OnShow", function() panel.refresh() end)
