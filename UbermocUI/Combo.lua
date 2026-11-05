@@ -319,7 +319,7 @@ local function buildPage()
     local panel = CreateFrame("Frame")
     panel.name = "Combo Points"
     API.newLabel(panel, "Combo Points", 16, -16, "GameFontNormalHuge")
-    API.newLabel(panel, "Rogues and druids in cat form: your combo points on the target halo frame and the target's nameplate.", 16, -44, "GameFontHighlightSmall")
+    API.newLabel(panel, "Rogues and druids in cat form. Every way to show combo points is on this page: on the floating frame's portrait, on the halo frame, on the nameplate, and as a row under the floating frame's bars.", 16, -44, "GameFontHighlightSmall")
 
     -- Preview: a round frame with the arc, and a nameplate bar with the row.
     local pv = CreateFrame("Frame", nil, panel)
@@ -427,6 +427,55 @@ local function buildPage()
     swatch("plate", "", "Filled colour (and the number)")
     swatch("plate", "e", "Empty colour (with opacity)", true)
     swatch("plate", "c", "Charged colour")
+    -- A straight row under the floating frame's bars, and the finisher estimate. Their settings are kept with the floating
+    -- frames (they are the same for every class resource); the controls are here so all the ways of showing combo points
+    -- are in one place.
+    y = y - 10
+    header("A straight row under the floating frame's bars")
+    local fctl = {}
+    local function fdb() return (API.floatDB and API.floatDB()) or {} end
+    local function fapply() if API.targetFrameRefresh then pcall(API.targetFrameRefresh) end end
+    local function fcheck(label, key)
+        local w = API.newCheck(sc, label, 8, y, function(v) fdb()[key] = v; fapply() end)
+        fctl[#fctl + 1] = { key = key, w = w, kind = "check" }
+        y = y - 32
+    end
+    local function fslider(label, key, lo, hi)
+        API.newLabel(sc, label, 30, y - 4)
+        local w = API.makeSlider(sc, 140, lo, hi, 1, px, function(v) fdb()[key] = v; fapply() end)
+        w:SetPoint("TOPLEFT", 240, y)
+        fctl[#fctl + 1] = { key = key, w = w, kind = "slider" }
+        y = y - 38
+    end
+    local function fseg(label, key, opts)
+        API.newLabel(sc, label, 30, y - 4)
+        local w = API.segRow(sc, 208, y, opts, function() return fdb()[key] end, function(v) fdb()[key] = v; fapply() end)
+        fctl[#fctl + 1] = { key = key, w = w, kind = "seg" }
+        y = y - 40
+    end
+    fcheck("Show the row (combo points, and the other classes' points such as holy power)", "resOn")
+    fseg("Shown on", "resCombo", { { "target", "Target frame", 100 }, { "player", "Player frame", 100 }, { "both", "Both", 60 } })
+    fseg("Shape", "resShape", { { "dots", "Dots", 70 }, { "segments", "Segments", 90 } })
+    fslider("Size", "resSize", 4, 30)
+    fslider("Space between", "resGap", 0, 20)
+    fseg("Align", "resAlign", { { "left", "Left", 70 }, { "center", "Centre", 80 }, { "right", "Right", 70 } })
+    fslider("Left / right", "resX", -200, 200)
+    fslider("Up / down", "resY", -60, 60)
+    fcheck("Show the empty points", "resEmpty")
+    fcheck("Show a test row (turn it off again afterwards)", "resPreview")
+    API.newLabel(sc, "The row is hidden on the target frame while the portrait number or dots above are on.", 30, y, "GameFontHighlightSmall")
+    y = y - 28
+    y = y - 10
+    header("Finisher damage estimate (rogue, druid in cat form)")
+    fcheck("Estimated Eviscerate / Ferocious Bite damage over the enemy's health bar", "finisher")
+    local function fresh()
+        local d = fdb()
+        for _, c in ipairs(fctl) do
+            if c.kind == "check" then c.w:SetChecked(d[c.key] and true or false)
+            elseif c.kind == "slider" then if type(d[c.key]) == "number" then API.setSlider(c.w, d[c.key]) end
+            else c.w.refresh() end
+        end
+    end
     y = y - 6
     local test = API.newCheck(sc, "Show 3 combo points now, on any target (to set them up)", 8, y, function(v) testing = v; pcall(update) end)
     y = y - 40
@@ -448,7 +497,7 @@ local function buildPage()
                 end
             end
         end
-        modeBtn.refresh(); posBtn.refresh(); haloMode.refresh()
+        modeBtn.refresh(); posBtn.refresh(); haloMode.refresh(); fresh()
         test:SetChecked(testing)
         local hOn, pOn = (d.halo.on or d.float.on) and true or false, d.plate.on   -- (the look settings serve both)
         for k, w in pairs(ctl) do

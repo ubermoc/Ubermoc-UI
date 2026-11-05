@@ -643,8 +643,10 @@ local function release(btn)
         if btn.HotKey and btn.HotKey.SetAlpha then btn.HotKey:SetAlpha(1) end
     end)
     if btn.ubermocVirtual then btn:Hide(); return end
+    -- The game's bar layout is asked to run again only outside combat: from addon code it repositions the protected
+    -- main bar, which the game refuses in combat ("MainActionBar:SetPointBase" blocked).
     local bar = st.bar
-    if bar then
+    if bar and not InCombatLockdown() then
         for _, fn in ipairs({ "UpdateGridLayout", "Layout" }) do
             if type(bar[fn]) == "function" then pcall(bar[fn], bar) end
         end

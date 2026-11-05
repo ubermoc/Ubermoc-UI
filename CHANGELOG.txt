@@ -1,3 +1,10 @@
+UbermocUI 1.0.119
+- Fixed: the finisher damage estimate (Eviscerate / Ferocious Bite) showed nothing because the game gives a spell's text only after the data has been asked for. It now asks first and retries. It is drawn in yellow with a light glow over the enemy's health bar. /ubfinisher shows what it reads.
+- Changed: every way of showing combo points is now on the Combo Points page: on the floating frame's portrait, on the halo frame, on the nameplate, the straight row under the floating frame's bars, and the finisher estimate. They are no longer on the Unit Frames pages.
+- Fixed: pressing X on a button of a game question window no longer logs an error in the game's dialog code.
+- Fixed: the addon no longer asks the game to lay out its action bars during combat (the game blocked it for the protected main bar).
+- New: /ubclassbuttons status shows why the class ability buttons are or are not showing.
+
 UbermocUI 1.0.118
 - Fixed: Professions on the micro corner wheel opened and then closed straight away. The wheel's backup no longer toggles a window the game's own button has already toggled.
 - Fixed: the combo point number on the floating target frame no longer depends on the halo option. It has its own switch on the Combo Points page ("Combo points on the floating target frame's portrait"), on by default, so the number shows on the portrait instead of the nameplate number and the row of dots overlapping.

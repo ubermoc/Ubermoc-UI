@@ -275,13 +275,30 @@ end)
 SLASH_UBERMOCCLASSBUTTONS1 = "/ubclassbuttons"
 SlashCmdList["UBERMOCCLASSBUTTONS"] = function(msg)
     msg = (msg or ""):lower():match("^%s*(%S*)")
-    if msg == "on" or msg == "off" then
+    if msg == "status" then
+        local pf = API.floatFrame and API.floatFrame("player")
+        local ring = pf and pf.ring
+        print(("Ubermoc UI class buttons: enabled=%s, player frame=%s shown=%s, portrait ring shown=%s, wanted=%d, built=%d"):format(
+            tostring(enabled()), tostring(pf and (pf:GetName() or "frame")), tostring(pf and pf:IsShown()),
+            tostring(ring and ring:IsShown()), #wantedList(), #pool))
+        for i, id in ipairs(shownList) do
+            local b = pool[i]
+            if b then
+                local l, bt = b:GetCenter()
+                print(("  %d: spell %s '%s', shown=%s, alpha=%.2f, scale=%.2f, at %s,%s"):format(i, tostring(id),
+                    tostring(C_Spell.GetSpellName(id)), tostring(b:IsShown()), b:GetAlpha(), b:GetScale(),
+                    tostring(l and math.floor(l)), tostring(bt and math.floor(bt))))
+            end
+        end
+        local sbar = _G.StanceBar
+        print(("  stance bar: forms=%s, alpha=%s"):format(tostring(GetNumShapeshiftForms()), tostring(sbar and sbar:GetAlpha())))
+    elseif msg == "on" or msg == "off" then
         UbermocUIDB.classButtonsOff = (msg == "off") or nil
         dirty = true
         pcall(layout)
         print("Ubermoc UI: the class ability buttons are " .. msg .. ".")
     else
-        print("Ubermoc UI: /ubclassbuttons on | off (stances, forms, Stealth and Vanish above your player portrait).")
+        print("Ubermoc UI: /ubclassbuttons on | off | status (stances, forms, Stealth and Vanish above your player portrait).")
     end
 end
 

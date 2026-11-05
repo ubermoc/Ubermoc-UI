@@ -2444,6 +2444,14 @@ local function clickNode(btn)
     local n = cursor.cur
     if not n then return end
     if cursor.grab then dropGrab(); return end
+    -- The game's question windows only take a left click ("non-fatal assertion failed" in the game's dialog code
+    -- otherwise), so X does nothing on their buttons.
+    if btn == "RightButton" then
+        for i = 1, 4 do
+            local pop = _G["StaticPopup" .. i]
+            if pop and n.IsDescendantOf and n:IsDescendantOf(pop) then return end
+        end
+    end
     if n.ubMover then
         cursor.grab = n
         n.dragging = true   -- the mover leaves its place alone while it is carried

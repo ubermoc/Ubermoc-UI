@@ -198,6 +198,17 @@ local function shortNumber(n)
     return tostring(math.floor(n))
 end
 
+-- The game gives a spell's text only after the spell's data has been asked for (it answers nil until then).
+local function spellText(id)
+    if C_Spell.IsSpellDataCached and C_Spell.RequestLoadSpellData and not C_Spell.IsSpellDataCached(id) then
+        pcall(C_Spell.RequestLoadSpellData, id)
+    end
+    local ok, desc = pcall(C_Spell.GetSpellDescription, id)
+    desc = ok and plain(desc) or nil
+    if type(desc) ~= "string" or desc == "" then return nil end
+    return desc
+end
+
 local function finisherText()
     local _, cls = UnitClass("player")
     local fin = FINISHERS[cls]
@@ -211,9 +222,9 @@ local function finisherText()
     if type(pts) ~= "number" or pts < 1 then return nil end
     if IsPlayerSpell and not IsPlayerSpell(fin[1]) then return nil end
     local now = GetTime()
-    if finCache.id ~= fin[1] or now - finCache.at > 2 then
-        local okD, desc = pcall(C_Spell.GetSpellDescription, fin[1])
-        finCache.id, finCache.text, finCache.at = fin[1], okD and plain(desc) or nil, now
+    -- (asked again every half second while the text has not come, then kept for two seconds)
+    if finCache.id ~= fin[1] or now - finCache.at > (finCache.text and 2 or 0.5) then
+        finCache.id, finCache.text, finCache.at = fin[1], spellText(fin[1]), now
     end
     local dmg = parseFinisher(finCache.text, pts, cls == "ROGUE")
     if not dmg then return nil end
@@ -226,12 +237,16 @@ SlashCmdList["UBERMOCFINISHER"] = function()
     local _, cls = UnitClass("player")
     local fin = FINISHERS[cls]
     if not fin then print("Ubermoc UI: the finisher estimate is for rogues and druids in cat form."); return end
-    local okD, desc = pcall(C_Spell.GetSpellDescription, fin[1])
-    desc = okD and plain(desc) or nil
-    print("Ubermoc UI finisher text: " .. tostring(desc and desc:gsub("\n", " | ")))
-    local okP, pts = pcall(UnitPower, "player", (Enum and Enum.PowerType and Enum.PowerType.ComboPoints) or 4)
-    pts = okP and plain(pts) or 0
-    print("combo points: " .. tostring(pts) .. ", read: " .. tostring(parseFinisher(desc, tonumber(pts) or 0, cls == "ROGUE")) .. ", shown: " .. tostring(finisherText()))
+    local okName, spellName = pcall(C_Spell.GetSpellName, fin[1])
+    print("Ubermoc UI finisher: spell " .. fin[1] .. " is '" .. tostring(okName and spellName or nil) .. "', known: " .. tostring(IsPlayerSpell and IsPlayerSpell(fin[1])))
+    spellText(fin[1])   -- asks the game for the text; it arrives a moment later
+    C_Timer.After(1, function()
+        local desc = spellText(fin[1])
+        print("finisher text: " .. tostring(desc and desc:gsub("\n", " | ")))
+        local okP, pts = pcall(UnitPower, "player", (Enum and Enum.PowerType and Enum.PowerType.ComboPoints) or 4)
+        pts = okP and plain(pts) or 0
+        print("combo points: " .. tostring(pts) .. ", read: " .. tostring(parseFinisher(desc, tonumber(pts) or 0, cls == "ROGUE")) .. ", shown: " .. tostring(finisherText()))
+    end)
 end
 
 ----------------------------------------------------------------------
@@ -456,9 +471,19 @@ local function newFrame(name, level)
     f.name:SetJustifyH("LEFT")
     f.name:SetShadowOffset(0, 0)
     f.hp = bar(f, 14)
-    f.finText = f.hp.sb:CreateFontString(nil, "OVERLAY")
+    -- yellow text with a light glow: four faint copies a pixel off, under the text itself
+    f.finGlow = {}
+    for i, o in ipairs({ { 1.5, 0 }, { -1.5, 0 }, { 0, 1.5 }, { 0, -1.5 } }) do
+        local g = f.hp.sb:CreateFontString(nil, "OVERLAY", nil, 1)
+        g:SetShadowOffset(0, 0)
+        g:SetTextColor(1, 0.7, 0.1, 0.4)
+        g:SetPoint("RIGHT", f.hp.sb, "RIGHT", -4 + o[1], o[2])
+        g:Hide()
+        f.finGlow[i] = g
+    end
+    f.finText = f.hp.sb:CreateFontString(nil, "OVERLAY", nil, 2)
     f.finText:SetShadowOffset(0, 0)
-    f.finText:SetTextColor(1, 0.82, 0.1)
+    f.finText:SetTextColor(1, 0.9, 0.25)
     f.finText:SetPoint("RIGHT", f.hp.sb, "RIGHT", -4, 0)
     f.finText:Hide()
     f.questIcon:SetPoint("LEFT", f.hp.sb, "RIGHT", 8, 0)
@@ -593,7 +618,8 @@ local function layoutFrame(f)
     f.name:SetWordWrap(false)
     local ts = d.textSize or 10
     f.hp.text:SetFont(font(), ts, "OUTLINE")
-    f.finText:SetFont(font(), ts, "OUTLINE")
+    f.finText:SetFont(font(), ts + 1, "OUTLINE")
+    for _, g in ipairs(f.finGlow or {}) do g:SetFont(font(), ts + 1, "") end
     local ph = math.max(3, d.powH or 8)
     f.pw.text:SetFont(font(), d.powTextSize or math.max(6, ts - 2), "OUTLINE")
     -- The resource bar hangs barGap below the health bar (4 puts their rims side by side, the starting look).
@@ -1341,7 +1367,13 @@ local function fill(f, unit, d, label)
             local okA, atk = pcall(UnitCanAttack, "player", unit)
             if okA and plain(atk) then fin = finisherText() end
         end
-        if fin then f.finText:SetText(fin); f.finText:Show() else f.finText:Hide() end
+        if fin then
+            f.finText:SetText(fin); f.finText:Show()
+            for _, g in ipairs(f.finGlow or {}) do g:SetText(fin); g:Show() end
+        else
+            f.finText:Hide()
+            for _, g in ipairs(f.finGlow or {}) do g:Hide() end
+        end
     end
     local okC, conn = pcall(UnitIsConnected, unit)
     local offline = okC and plain(conn) == false
@@ -1962,22 +1994,13 @@ local function lookSections(S, unit)
     S.slider("Bar spacing (every frame)", "barGap", 0, 20, px)
     S.note("The health, resource and cast bars share these two settings on every floating frame (player, pet, party, raid, target, focus and the rest), so they all look the same.")
     S.slider("Name size", "nameSize", 8, 24, px)
-    if unit == "player" or unit == "target" then
+    if unit == "player" then
         S.gap()
-        S.head("Class resource (every frame)")
-        S.note("Combo points (rogue, druid) on your target's frame; holy power, soul shards, chi, arcane charges, essence or runes on your player frame. The cast bar and auras move down to make room.")
-        S.check("Show the class resource", "resOn")
-        if unit == "target" then S.check("Estimated Eviscerate / Ferocious Bite damage on the health bar", "finisher") end
-        if unit == "player" then S.check("Class ability buttons above the portrait (stances, forms, Stealth, Vanish)", "classButtons") end
-        S.seg("Combo points on", "resCombo", { { "target", "Target frame", 100 }, { "player", "Player frame", 100 }, { "both", "Both", 60 } })
-        S.seg("Shape", "resShape", { { "dots", "Dots", 70 }, { "segments", "Segments", 90 } })
-        S.slider("Size", "resSize", 4, 30, px)
-        S.slider("Space between", "resGap", 0, 20, px)
-        S.seg("Align", "resAlign", { { "left", "Left", 70 }, { "center", "Centre", 80 }, { "right", "Right", 70 } })
-        S.slider("Left / right", "resX", -200, 200, px)
-        S.slider("Up / down", "resY", -60, 60, px)
-        S.check("Show the empty points", "resEmpty")
-        S.check("Show a test row (turn it off again afterwards)", "resPreview")
+        S.head("Class abilities")
+        S.check("Class ability buttons above the portrait (stances, forms, Stealth, Vanish)", "classButtons")
+    elseif unit == "target" then
+        S.gap()
+        S.note("Combo points, the row of class resource points and the finisher damage estimate are on the Combo Points page.")
     end
     S.gap()
     S.tab("Text")
