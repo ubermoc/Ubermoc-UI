@@ -62,6 +62,9 @@ function P.OwnOpen()
         if shown(_G[n]) then return true end
     end
     if API.win and shown(API.win) then return true end
+    -- While our NPC dialogue has the conversation (even for the moment its window is being changed) the game cursor
+    -- stays out: it would otherwise take A and B, and B closes the game's (hidden) gossip / quest window under the dialogue.
+    if API.npcOwns and API.npcOwns() then return true end
     if API.cursorMenuOpen and API.cursorMenuOpen() then return true end
     for _, m in ipairs(API.moverFrames or {}) do
         if shown(m) then return true end
@@ -69,11 +72,27 @@ function P.OwnOpen()
     return false
 end
 
+-- Why the game cursor is staying out right now (for /ubowner), or "none".
+function P.OwnReason()
+    for _, n in ipairs(OWN_WINDOWS) do
+        if shown(_G[n]) then return n end
+    end
+    if API.win and shown(API.win) then return "settings window" end
+    if API.npcOwns and API.npcOwns() then return "npc dialogue (" .. tostring(API.npcMode and API.npcMode()) .. ")" end
+    if API.cursorMenuOpen and API.cursorMenuOpen() then return "a game pop-up menu is open" end
+    for i, m in ipairs(API.moverFrames or {}) do
+        if shown(m) then return "an unlocked mover (" .. tostring(m.GetName and m:GetName() or i) .. ")" end
+    end
+    return "none"
+end
+
 -- The game's windows that are open, as a list of their top frames.
 function P.OpenWindows()
     local list, seen = {}, {}
     local function add(frame)
-        if shown(frame) and not seen[frame] then
+        -- (visible, not just shown: the game's gossip and quest windows are kept inside a hidden frame while our dialogue
+        -- is up, and they still count as shown)
+        if shown(frame) and frame.IsVisible and frame:IsVisible() and not seen[frame] then
             seen[frame] = true
             list[#list + 1] = frame
         end
@@ -384,9 +403,80 @@ function P.SpellsTab(key)
 end
 
 local legend
+local legendError
+
+-- The equipment slot button under the pointer (character panel), if any.
+local function hoveredSlot()
+    for _, fr in ipairs(GetMouseFoci and GetMouseFoci() or {}) do
+        local f = fr
+        for _ = 1, 3 do
+            if not f or f == WorldFrame or f == UIParent then break end
+            local nm = f.GetName and f:GetName()
+            if type(nm) == "string" and nm:find("^Character%a+Slot$") and f.popoutButton then return f end
+            f = f.GetParent and f:GetParent() or nil
+        end
+    end
+end
+P.HoveredSlot = hoveredSlot
+
+local function lab(key)
+    return API.padLabel and API.padLabel(key, true) or key
+end
+local function hint(key, name, on)
+    local c = on and "|cff00ff00" or "|cffffffff"
+    local d = on and "|cff00ff00" or "|cffffd100"
+    return c .. lab(key) .. "|r " .. d .. name .. "|r"
+end
+
+-- The hint line for the character panel: only what applies to what the pointer is over.
+local function characterLegend()
+    local cf = _G.CharacterFrame
+    if not (cf and cf.IsShown and cf:IsShown()) then return nil end
+    local pointer = API.cursorPointerActive and API.cursorPointerActive()
+    if not (inputActive or pointer) then return nil end
+    local parts = {}
+    local fly = _G.EquipmentFlyoutFrame
+    local menu = _G.UbermocApplyMenu
+    if menu and menu:IsShown() then
+        parts = { hint("PAD1", "Choose"), hint("PAD2", "Close") }
+    elseif fly and fly:IsShown() and (pointer or fly.button) then
+        parts = { hint("PAD1", "Equip"), hint("PAD2", "Close") }
+    else
+        local sub = cf.activeSubframe
+        local slot = (sub == nil or sub == "PaperDollFrame") and hoveredSlot() or nil
+        if slot then
+            parts = { hint("PAD1", "Select"), hint("PAD4", "Item menu"), hint("PAD2", "Back") }
+        elseif sub == "ReputationFrame" then
+            parts = { hint("PAD1", "Select faction"), lab("PADLSHOULDER") .. " " .. lab("PADRSHOULDER") .. " |cffffd100Tabs|r", hint("PAD2", "Back") }
+        elseif sub == "TokenFrame" then
+            parts = { hint("PAD1", "Select"), lab("PADLSHOULDER") .. " " .. lab("PADRSHOULDER") .. " |cffffd100Tabs|r", hint("PAD2", "Back") }
+        else
+            parts = { hint("PAD1", "Select"), lab("PADLSHOULDER") .. " " .. lab("PADRSHOULDER") .. " |cffffd100Tabs|r", hint("PAD2", "Back") }
+        end
+    end
+    return table.concat(parts, "      "), cf
+end
+
 local function updateLegend()
     local f = spellsWindow()
-    if not f or InCombatLockdown() or not inputActive then
+    local text
+    if f and not InCombatLockdown() and inputActive then
+        local FT = PlayerSpellsUtil.FrameTabs
+        local function item(btn, name, tab)
+            local on = f:IsFrameTabActive(tab)
+            return hint(btn, name, on)
+        end
+        text = item("PADLSHOULDER", "Spellbook", FT.SpellBook) .. "      " .. item("PADRSHOULDER", "Talents", FT.ClassTalents)
+    elseif not InCombatLockdown() then
+        local ok, t, cf = pcall(characterLegend)
+        if ok then
+            if t then text, f = t, cf end
+        elseif not legendError then
+            legendError = tostring(t)
+            print("Ubermoc UI: the character panel hints hit an error: " .. legendError)
+        end
+    end
+    if not text then
         if legend then legend:Hide() end
         return
     end
@@ -400,15 +490,11 @@ local function updateLegend()
         legend.text = legend:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         legend.text:SetPoint("CENTER")
     end
-    local lb = API.padLabel and API.padLabel("PADLSHOULDER", true) or "L1"
-    local rb = API.padLabel and API.padLabel("PADRSHOULDER", true) or "R1"
-    local FT = PlayerSpellsUtil.FrameTabs
-    local function item(btn, name, tab)
-        local on = f:IsFrameTabActive(tab)
-        return (on and "|cff00ff00" or "|cffffffff") .. btn .. "|r " .. (on and "|cff00ff00" or "|cffffd100") .. name .. "|r"
+    if legend.shown ~= text then
+        legend.shown = text
+        legend.text:SetText(text)
+        legend:SetWidth(legend.text:GetStringWidth() + 24)
     end
-    legend.text:SetText(item(lb, "Spellbook", FT.SpellBook) .. "      " .. item(rb, "Talents", FT.ClassTalents))
-    legend:SetWidth(legend.text:GetStringWidth() + 24)
     legend:SetScale(f:GetEffectiveScale() / (UIParent:GetEffectiveScale() or 1))
     legend:ClearAllPoints()
     -- just under the window; when it reaches the bottom of the screen, along the screen's bottom edge under it
@@ -446,8 +532,14 @@ local function onButtonUp(_, key)
     pcall(SimulateMouseClick, "LeftButton")
 end
 
-local function onButton(_, key)
+local function onButton(self, key)
     key = key:match("([^-]+)$") or key
+    -- A stale tick: another handler owns the buttons now (the NPC dialogue, a question window, the drawn pointer).
+    -- Hand the button on instead of swallowing it.
+    if API.npcOwns and API.npcOwns() then
+        pcall(self.SetPropagateKeyboardInput, self, true)
+        return
+    end
     if DIRECTIONS[key] then
         P.Snap(DIRECTIONS[key])
     elseif key == "PAD1" then
@@ -502,6 +594,27 @@ local function manageClicks(taking)
         end
     end
 end
+
+-- Who has the controller buttons right now, in one line (also printed by /ubowner and by the NPC trace).
+function API.inputOwner()
+    local function st(n)
+        local f = _G[n]
+        if not f then return n .. "=none" end
+        local par = f.GetParent and f:GetParent()
+        return ("%s=shown:%s/visible:%s/parent:%s"):format(n, tostring(f:IsShown()), tostring(f:IsVisible()),
+            tostring(par and (par:GetName() or "unnamed") or "nil"))
+    end
+    local wins = {}
+    for _, w in ipairs(P.OpenWindows()) do wins[#wins + 1] = w:GetName() or "unnamed" end
+    return ("npc=%s | %s | %s | %s | open windows=[%s] | padcursor input=%s wants=%s own=%s | pointer=%s | gameCursor=%s | popup=%s"):format(
+        tostring(API.npcMode and API.npcMode()), st("UbermocDialogue"), st("GossipFrame"), st("QuestFrame"),
+        table.concat(wins, ","), tostring(inputActive), tostring(P.Wants()), P.OwnReason(),
+        tostring(API.cursorPointerActive and API.cursorPointerActive()),
+        tostring(cursorControlOn()),
+        tostring((_G.StaticPopup1 and _G.StaticPopup1:IsShown() and _G.StaticPopup1.which) or "none"))
+end
+SLASH_UBERMOCOWNER1 = "/ubowner"
+SlashCmdList["UBERMOCOWNER"] = function() print("Ubermoc UI input owner: " .. API.inputOwner()) end
 
 local function syncInput(want)
     if want == inputActive then return end

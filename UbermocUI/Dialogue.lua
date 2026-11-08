@@ -67,6 +67,14 @@ local function readable(acc, paper, toward)
 end
 
 local cache
+-- SetFont with a fallback: a theme font file that this client lacks would leave the text without any font
+local function safeFont(fs, path, size)
+    local ok, res = pcall(fs.SetFont, fs, path, size, "")
+    if not (ok and res) then
+        pcall(fs.SetFont, fs, STANDARD_TEXT_FONT, size, "")
+    end
+end
+
 local function theme()
     local d = DB()
     local key = table.concat({ d.theme, tostring(d.accent and d.accent[1]), tostring(d.accent and d.accent[2]), tostring(d.accent and d.accent[3]),
@@ -323,9 +331,9 @@ local function applyTheme()
         end
     end
     f.npcFS:SetTextColor(color(th.sub))
-    f.titleFS:SetFont(th.font, 20, "")
+    safeFont(f.titleFS, th.font, 20)
     f.titleFS:SetTextColor(color(th.title))
-    f.bodyFS:SetFont(th.font, d.text or 14, "")
+    safeFont(f.bodyFS, th.font, d.text or 14)
     f.bodyFS:SetTextColor(color(th.text))
     f.hint:SetTextColor(color(th.sub))
     f.lblChoose:SetTextColor(color(th.title))
@@ -344,7 +352,7 @@ local function applyTheme()
     for _, r in ipairs(rowPool) do
         r.hover:SetColorTexture(color(th.hover))
         r.sel:SetColorTexture(color(th.sel))
-        r.text:SetFont(th.font, (d.text or 14) + 1, "")
+        safeFont(r.text, th.font, (d.text or 14) + 1)
         r.text:SetTextColor(color(th.text))
     end
     for _, b in ipairs(itemPool) do b.sel:SetColorTexture(color(th.sel)) end
@@ -565,6 +573,7 @@ render = function(data, keepScroll)
     local textH = (f.bodyFS:GetStringHeight() or 20) + 6
     local maxBody = data.maxBody or 220
     local bodyH = (data.text and data.text ~= "") and math.min(maxBody, math.max(24, textH)) or 0
+    local overflow = bodyH > 0 and textH > bodyH + 2
     f.sf:ClearAllPoints()
     f.sf:SetPoint("TOPLEFT", 16, -y)
     f.sf:SetSize(W - 32, math.max(1, bodyH))
@@ -690,9 +699,20 @@ render = function(data, keepScroll)
     setBtn(f.secondary, data.secondary, "PAD2", "Esc")
     y = y + 44
 
-    -- No line of button explanations under the buttons: the icons on them say it.
-    f.hint:SetText("")
-    f.hint:Hide()
+    -- No line of button explanations under the buttons: the icons on them say it. Only when the text is longer than its
+    -- box, one line says how to scroll it.
+    if overflow then
+        local lt = (API.padLabel and API.padLabel("PADLTRIGGER", true)) or "L2"
+        local rt = (API.padLabel and API.padLabel("PADRTRIGGER", true)) or "R2"
+        f.hint:ClearAllPoints()
+        f.hint:SetPoint("TOPLEFT", 16, -y)
+        f.hint:SetText(lt .. " / " .. rt .. "  scroll the text")
+        f.hint:Show()
+        y = y + 18
+    else
+        f.hint:SetText("")
+        f.hint:Hide()
+    end
 
     f:SetHeight(y + 4)
     place()
@@ -732,6 +752,14 @@ local function markBest(list)
 end
 
 API.npcMode = function() return S.mode end
+-- True while the dialogue really has the conversation: its window is up, or was a moment ago (it is redrawn between
+-- screens). A mode left set with no window for a while does not count, so it can never keep the game cursor out of the
+-- other windows (the character panel, say).
+API.npcOwns = function()
+    if not S.mode or S.mode == "preview" then return false end
+    if f and f:IsShown() then return true end
+    return (GetTime() - (S.seen or 0)) < 1.5
+end
 
 local function close()
     S.closing = true
@@ -1008,6 +1036,15 @@ local function toggleCompare()
     end
 end
 
+-- Scrolls the body text (a long gossip or quest text) even while there is a list of choices to move through.
+local function scrollBody(dir)
+    if not (f and f.sf and f.sf:IsShown()) then return false end
+    local max = f.sf:GetVerticalScrollRange() or 0
+    if max <= 0 then return false end
+    f.sf:SetVerticalScroll(math.max(0, math.min(max, (f.sf:GetVerticalScroll() or 0) + dir * 60)))
+    return true
+end
+
 local KEYS = {
     UP = function() move(0, -1) end, DOWN = function() move(0, 1) end, LEFT = function() move(-1, 0) end, RIGHT = function() move(1, 0) end,
     PADDUP = function() move(0, -1) end, PADDDOWN = function() move(0, 1) end, PADDLEFT = function() move(-1, 0) end, PADDRIGHT = function() move(1, 0) end,
@@ -1018,7 +1055,9 @@ local KEYS = {
     ESCAPE = function() if S.data and S.data.secondaryFn then S.data.secondaryFn() else closeGame() end end,
     PAD2 = function() if S.data and S.data.secondaryFn then S.data.secondaryFn() else closeGame() end end,
     C = toggleCompare, PAD4 = toggleCompare,
-    PAGEUP = function() move(0, -3) end, PAGEDOWN = function() move(0, 3) end,
+    PAGEUP = function() if not scrollBody(-1) then move(0, -3) end end,
+    PAGEDOWN = function() if not scrollBody(1) then move(0, 3) end end,
+    PADLTRIGGER = function() scrollBody(-1) end, PADRTRIGGER = function() scrollBody(1) end,
 }
 for i = 1, 9 do
     KEYS[tostring(i)] = function()
@@ -1095,6 +1134,22 @@ applyThemeRef = function() if f then applyTheme() end end
 API.npcTakeOver = function() takeOver(DB().on) end
 API.npcRelease = function() takeOver(false) end
 
+-- Takes the game's windows back into hiding after a conversation that had to use them. It waits for the end of a fight
+-- (the game's windows cannot be moved then) and tries again until it has worked, instead of once: a single missed try
+-- left the game's own text menu showing for every later conversation.
+local retakeTries = 0
+local function retake()
+    if not S.released then retakeTries = 0; return end
+    if InCombatLockdown() and retakeTries < 120 then
+        retakeTries = retakeTries + 1
+        C_Timer.After(1, retake)
+        return
+    end
+    retakeTries = 0
+    S.released = false
+    pcall(takeOver, DB().on)
+end
+
 -- Keys, controller buttons and closing, hooked up once the window exists.
 local wired = false
 function API.npcWire()
@@ -1107,6 +1162,7 @@ function API.npcWire()
     -- Sit underneath a game question window so it is never covered by this one.
     local acc, lowered = 0, false
     f:HookScript("OnUpdate", function(self, dt)
+        S.seen = GetTime()
         acc = acc + dt
         if acc < 0.15 then return end
         acc = 0
@@ -1141,19 +1197,67 @@ local function recover()
     end
 end
 
+-- The game's own gossip / quest window must never be the one on screen while the dialogue is on: if it ever is (it was
+-- shown again by the game, or its hiding was missed), it is put away at once and ours is drawn for the conversation.
+do
+    local acc = 0
+    local g = CreateFrame("Frame")
+    g:SetScript("OnUpdate", function(_, dt)
+        acc = acc + dt
+        if acc < 0.2 then return end
+        acc = 0
+        if not DB().on or S.released or InCombatLockdown() then return end
+        local gf, qf = _G.GossipFrame, _G.QuestFrame
+        if (gf and gf:IsVisible()) or (qf and qf:IsVisible()) then
+            trace("the game's own window is visible: taking it over again")
+            pcall(takeOver, true)
+            if not (f and f:IsShown()) then pcall(recover) end
+        end
+    end)
+end
+
 local ev = CreateFrame("Frame")
 for _, e in ipairs({ "GOSSIP_SHOW", "GOSSIP_CLOSED", "QUEST_GREETING", "QUEST_DETAIL", "QUEST_PROGRESS", "QUEST_COMPLETE", "QUEST_FINISHED",
                      "QUEST_ITEM_UPDATE", "GET_ITEM_INFO_RECEIVED", "PLAYER_LOGIN" }) do
     pcall(ev.RegisterEvent, ev, e)
 end
-ev:SetScript("OnEvent", function(_, event)
+ev:SetScript("OnEvent", function(_, event, ...)
     if event == "PLAYER_LOGIN" then
         DB()
         takeOver(DB().on)   -- the window itself is made the first time an NPC talks to you
         return
     end
     if not DB().on then return end
-    trace(event, "mode=" .. tostring(S.mode), "npc=" .. tostring(UnitName("npc")))
+    local kit = ...
+    -- Everything added around the showing is fail-safe: whatever goes wrong in it must never stop the dialogue from opening.
+    if DB().trace then
+        local okO, owner = pcall(function() return API.inputOwner and API.inputOwner() or "" end)
+        trace(event, "mode=" .. tostring(S.mode), "npc=" .. tostring(UnitName("npc")), okO and owner or ("owner report failed: " .. tostring(owner)))
+    end
+    local custom = false
+    pcall(function()
+        -- Some NPCs open a window of their own kind (the Torghast level pickers, the new player guide): the game has a
+        -- custom frame registered for the gossip's texture kit. That window is the game's, so ours stays out of its way.
+        if event == "GOSSIP_SHOW" then
+            local mgr = _G.CustomGossipFrameManager
+            if type(kit) == "string" and kit ~= "" and mgr and mgr.GetHandler then
+                local okH, handler = pcall(mgr.GetHandler, mgr, kit)
+                if okH and handler ~= nil and handler ~= false then
+                    trace("custom gossip frame of the game:", kit)
+                    custom = true
+                end
+            end
+        end
+        -- the drawn pointer must not hold A and B while the dialogue takes over (a question window on top is the exception)
+        if not custom and (event == "GOSSIP_SHOW" or event == "QUEST_GREETING" or event == "QUEST_DETAIL" or event == "QUEST_PROGRESS" or event == "QUEST_COMPLETE")
+            and API.cursorPointerActive and API.cursorPointerActive() and not popupUp() and API.cursorDeactivate then
+            pcall(API.cursorDeactivate)
+        end
+    end)
+    if custom then
+        if f and f:IsShown() then close() end
+        return
+    end
     -- Right after Goodbye / Decline / Escape the same NPC cannot open again by itself (a repeated key press, or
     -- the game sending the list again): the game's side is closed once more and nothing is shown.
     if S.dismissedAt and GetTime() - S.dismissedAt < 0.4
@@ -1184,13 +1288,13 @@ ev:SetScript("OnEvent", function(_, event)
     elseif event == "QUEST_PROGRESS" then show("progress", dataProgress)
     elseif event == "QUEST_COMPLETE" then show("complete", dataComplete)
     elseif event == "QUEST_FINISHED" then
-        if S.released then S.released = false; C_Timer.After(0.6, function() if not InCombatLockdown() then pcall(API.npcTakeOver) end end) end
+        if S.released then C_Timer.After(0.6, retake) end
         if S.mode ~= "preview" then
             close()
             C_Timer.After(0.35, function() pcall(recover) end)
         end
     elseif event == "GOSSIP_CLOSED" then
-        if S.released then S.released = false; C_Timer.After(0.6, function() if not InCombatLockdown() then pcall(API.npcTakeOver) end end) end
+        if S.released then C_Timer.After(0.6, retake) end
         -- choosing a quest in a gossip list sends GOSSIP_CLOSED first and the quest right after: wait a moment
         local token = S.token
         if S.mode == "gossip" then

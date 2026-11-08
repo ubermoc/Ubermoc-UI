@@ -1,3 +1,14 @@
+UbermocUI 1.0.122
+- New: on the character screen, Y over an equipped item opens a menu with the equipment flyout (swap the item), sockets, and every item in your bags that is used on equipment: sharpening stones, weightstones, oils, armor kits, runes and enchant scrolls. The game decides whether the item fits. The pointer goes to the menu, B closes it.
+- New: when the game asks to confirm using an item on equipment (enchant replacement, soulbinding), A accepts and B declines, with a hint at the bottom.
+- New: the character screen shows its own controller hint line (Y item menu, B back, bumpers for tabs).
+- Fixed: the character screen's Y menu did not take the pointer the first time it was opened.
+- Fixed: NPC dialogue and the game's own cursor no longer fight over the controller. If a conversation's window cannot be drawn, the game's own window is used and the reason is printed.
+- Fixed: the NPC dialogue's text could end up with no font on a client that lacks the theme font; it now falls back to the standard font.
+- Fixed: the L2 / R2 triggers scroll long dialogue text, with a hint when the text is longer than the window.
+- Fixed: opening the character screen, spellbook and other windows from the menu wheel ran the game's code with this addon's taint; they now run through the game's secure call.
+- New: /ubowner, /ubequip and /ubtaint print what is holding the controller, what the equipment menu sees, and which game values this addon has tainted.
+
 UbermocUI 1.0.121
 - Fixed: the Y options menu on a spell or bag item did not take the pointer the first time it was opened (it had no screen position yet). It is now prepared after login and the pointer keeps trying until it lands on the menu. B closes it.
 

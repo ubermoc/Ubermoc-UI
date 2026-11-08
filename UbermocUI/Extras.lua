@@ -222,21 +222,31 @@ local function cursorToPage()
         C_Timer.After(t, function() if API.cursorActivate then pcall(API.cursorActivate) end end)
     end
 end
+-- The game's own toggle functions are run through securecallfunction, so the game's window code (here: the character
+-- panel's health and power bars, which read protected numbers) runs untainted instead of as addon code.
+local function gameCall(name, ...)
+    local fn = _G[name]
+    if type(fn) == "function" then return secureCall(fn, ...) end
+end
 local MICRO_OPEN = {
-    TOGGLECHARACTER0 = function() ToggleCharacter("PaperDollFrame") end,
-    TOGGLEPROFESSIONBOOK = function() ToggleProfessionsBook() end,
-    TOGGLESPELLBOOK = function() PlayerSpellsUtil.ToggleSpellBookFrame() end,
+    TOGGLECHARACTER0 = function() gameCall("ToggleCharacter", "PaperDollFrame") end,
+    TOGGLEPROFESSIONBOOK = function() gameCall("ToggleProfessionsBook") end,
+    TOGGLESPELLBOOK = function()
+        local U = _G.PlayerSpellsUtil
+        if U and U.ToggleSpellBookFrame then secureCall(U.ToggleSpellBookFrame) end
+    end,
     TOGGLETALENTS = function()
-        if PlayerSpellsUtil.TogglePlayerSpellsFrame then
-            PlayerSpellsUtil.TogglePlayerSpellsFrame(PlayerSpellsUtil.FrameTabs and PlayerSpellsUtil.FrameTabs.ClassTalents)
+        local U = _G.PlayerSpellsUtil
+        if U and U.TogglePlayerSpellsFrame then
+            secureCall(U.TogglePlayerSpellsFrame, U.FrameTabs and U.FrameTabs.ClassTalents)
         end
     end,
-    TOGGLEACHIEVEMENT = function() ToggleAchievementFrame() end,
-    TOGGLEQUESTLOG = function() ToggleQuestLog() end,
-    TOGGLEGUILDTAB = function() ToggleGuildFrame() end,
-    TOGGLEGROUPFINDER = function() PVEFrame_ToggleFrame() end,
-    TOGGLECOLLECTIONS = function() ToggleCollectionsJournal() end,
-    TOGGLEENCOUNTERJOURNAL = function() ToggleEncounterJournal() end,
+    TOGGLEACHIEVEMENT = function() gameCall("ToggleAchievementFrame") end,
+    TOGGLEQUESTLOG = function() gameCall("ToggleQuestLog") end,
+    TOGGLEGUILDTAB = function() gameCall("ToggleGuildFrame") end,
+    TOGGLEGROUPFINDER = function() gameCall("PVEFrame_ToggleFrame") end,
+    TOGGLECOLLECTIONS = function() gameCall("ToggleCollectionsJournal") end,
+    TOGGLEENCOUNTERJOURNAL = function() gameCall("ToggleEncounterJournal") end,
     -- not the game's ToggleGameMenu: that also stops casting, which addon code may not do
     TOGGLEGAMEMENU = function()
         local gm = _G.GameMenuFrame
@@ -1894,6 +1904,17 @@ local function collect()
         scan(itemMenu, out, 0)
         return out, 1
     end
+    if cursor.applySlot and _G.UbermocApplyMenu and _G.UbermocApplyMenu:IsShown() then
+        scan(_G.UbermocApplyMenu, out, 0)
+        return out, 1
+    end
+    -- the game's equipment flyout (Y on a slot of the character panel): only its buttons
+    local fly = cursor.flyoutSlot and _G.EquipmentFlyoutFrame
+    if fly and fly:IsShown() then
+        scan(fly, out, 0)
+        if #out > 0 then return out, 1 end
+        out = {}
+    end
     local om = openMenuRoot()
     if om then
         scan(om, out, 0)
@@ -2072,6 +2093,7 @@ end
 local function bindClickTarget(n)
     local o = cursor.owner
     if not o or not cursor.active or InCombatLockdown() or not cursor.clickKeys then return end
+    if cursor.confirmOn then return end   -- A and B belong to the Accept / Decline buttons while a confirmation is up
     local tl, tr = "UbermocCursorKeyA", "UbermocCursorKeyX"
     if cursor.grab then
         -- a frame being moved: A puts it down
@@ -2491,6 +2513,17 @@ local function clickNode(btn)
     -- the game's own menus are only ever clicked through the secure key binding (calling their buttons from
     -- here would run the whole menu action, such as Edit Mode, as addon code)
     if inGameMenu(n) or inGamePopup(n) then return end
+    -- A button of the game's equipment flyout: the game's own click handler is run as game code (it equips the item)
+    if cursor.flyoutSlot and n.GetName then
+        local nm = n:GetName()
+        if type(nm) == "string" and nm:find("^EquipmentFlyoutFrameButton%d+$") then
+            if btn == "LeftButton" and _G.EquipmentFlyoutButton_OnClick then
+                local okF, errF = secureCall(_G.EquipmentFlyoutButton_OnClick, n)
+                if not okF then API.equipFlyoutError = tostring(errF) end
+            end
+            return
+        end
+    end
     if n.Click then
         local ok = pcall(n.Click, n, btn)
         if ok then return end
@@ -2502,6 +2535,20 @@ local function closeTop()
     if cursor.grab then dropGrab(); return end
     if keyboard and keyboard:IsShown() then
         keyboard.close()
+        return
+    end
+    if cursor.applySlot and _G.UbermocApplyMenu and _G.UbermocApplyMenu:IsShown() then
+        _G.UbermocApplyMenu:Hide()   -- its OnHide hands the windows back to the game cursor
+        return
+    end
+    if cursor.flyoutSlot then
+        local fly = _G.EquipmentFlyoutFrame
+        if fly and fly:IsShown() then
+            secureCall(fly.Hide, fly)   -- its OnHide hands the windows back to the game cursor
+        else
+            cursor.flyoutSlot = nil
+            if API.padYield and API.cursorDeactivate then API.cursorDeactivate() end
+        end
         return
     end
     if itemMenu and itemMenu:IsShown() then
@@ -2893,24 +2940,25 @@ end
 
 -- The pointer put on the options menu's first button as soon as it is up, so it is not left behind on the spell or
 -- bag slot the menu came from (B closes the menu).
-local function snapToMenu()
+local function snapToMenu(root)
+    local function theRoot() return root or itemMenu end
     local function go()
-        local m = itemMenu
+        local m = theRoot()
         if not cursor.active or InCombatLockdown() or not (m and m:IsShown()) then return end
         refreshNodes()
-        local best, by
+        local best, by, bx
         for _, n in ipairs(cursor.nodes) do
             local ok, inside = pcall(function() return n.IsDescendantOf and n:IsDescendantOf(m) end)
             if ok and inside and n.IsVisible and n:IsVisible() then
-                local _, y = n:GetCenter()
-                if y and (not by or y > by) then best, by = n, y end
+                local x, y = n:GetCenter()
+                if y and (not by or y > by + 2 or (math.abs(y - by) <= 2 and x < bx)) then best, by, bx = n, y, x end
             end
         end
         if best and cursor.cur ~= best then leaveNode(cursor.cur); cursor.cur = nil; focus(best) end
     end
     -- a menu built for the first time has no screen position for a moment, so look again a few times
     local function landed()
-        local m = itemMenu
+        local m = theRoot()
         local c = cursor.cur
         if not (m and m:IsShown() and c) then return false end
         local ok, inside = pcall(function() return c.IsDescendantOf and c:IsDescendantOf(m) end)
@@ -3236,6 +3284,7 @@ local function setPadBindings(on)
     if InCombatLockdown() then return end
     ClearOverrideBindings(o)
     cursor.clickTarget, cursor.rightTarget = nil, nil
+    cursor.confirmOn = false
     if on then
         for _, key in ipairs(PADKEYS) do
             SetOverrideBindingClick(o, true, key, "UbermocCursorKey" .. PADACT[key], "LeftButton")
@@ -3252,6 +3301,7 @@ local function setPadBindings(on)
         -- of any controller), unless another controller button is bound to it in Key Bindings / the Interact page.
         -- A keyboard key bound to it does not take the face button away.
         cursor.clickKeys, cursor.rightKeys, cursor.clickTarget, cursor.rightTarget = {}, {}, nil, nil
+        cursor.backKeys = {}
         for _, spec in ipairs({ { "UBERMOCUI_CURSORCLICK", "PAD1", "A" }, { "UBERMOCUI_CURSORRIGHT", "PAD3", "X" },
                                 { "UBERMOCUI_CURSORBACK", "PAD2", "B" }, { "UBERMOCUI_CURSORMENU", "PAD4", "Y" } }) do
             local keys = { GetBindingKey(spec[1]) }
@@ -3264,6 +3314,7 @@ local function setPadBindings(on)
                 SetOverrideBindingClick(o, true, key, "UbermocCursorKey" .. spec[3], "LeftButton")
                 if spec[3] == "A" then cursor.clickKeys[#cursor.clickKeys + 1] = key end
                 if spec[3] == "X" then cursor.rightKeys[#cursor.rightKeys + 1] = key end
+                if spec[3] == "B" then cursor.backKeys[#cursor.backKeys + 1] = key end
             end
         end
     end
@@ -3309,6 +3360,8 @@ do
         acc = 0
         local want = cursor.active and DB and DB.cursor and DB.cursor.hint ~= false
             and not (_G.UbermocUIWindow and _G.UbermocUIWindow:IsShown())
+            and not (_G.UbermocSpellsLegend and _G.UbermocSpellsLegend:IsShown())   -- one hint bar at a time
+            and not (_G.UbermocConfirmHint and _G.UbermocConfirmHint:IsShown())
         if not want then
             if strip and strip:IsShown() then strip:Hide() end
             return
@@ -3368,6 +3421,18 @@ activate = function(manual)
     if not cursor.frame then return false, "not built" end
     if InCombatLockdown() then return false, "combat" end
     if cursor.active then return true end
+    -- Our NPC dialogue owns A and B for the whole conversation; the pointer only joins for a question window on top.
+    do
+        local npc = API.npcOwns and API.npcOwns() and API.npcMode()
+        if npc and npc ~= "preview" then
+            local popup = false
+            for _, spec in ipairs(POPUPS) do
+                local pf = _G[spec[1]]
+                if pf and pf.IsShown and pf:IsShown() then popup = true; break end
+            end
+            if not popup then return false, "npc dialogue" end
+        end
+    end
     -- The game's windows (bags, menu panels, the game's options) belong to the game-cursor menus (PadCursor.lua);
     -- the drawn pointer is for Ubermoc UI's own windows, and for everything when /ubcursor engine pointer is set.
     if API.padCursor and API.padCursor.Wants and API.padCursor.Wants() then return false, "game cursor" end
@@ -3430,8 +3495,410 @@ end
 -- The Y button over a bag slot or a spell while the game-cursor menus (PadCursor.lua) have the window: the drawn pointer
 -- takes over for the options menu (use, sell, delete, disenchant, and the spell menu) and hands the window back when
 -- it closes.
+-- The equipment slot buttons of the character panel (Character...Slot).
+local function equipSlotOf(f)
+    for _ = 1, 3 do
+        if not f or f == WorldFrame or f == UIParent then return end
+        local nm = f.GetName and f:GetName()
+        if type(nm) == "string" and nm:find("^Character%a+Slot$") and f.popoutButton and f.GetID then return f end
+        f = f.GetParent and f:GetParent() or nil
+    end
+end
+
+local function equipFlyoutFail(msg)
+    API.equipFlyoutError = msg
+    say(msg)
+end
+
+-- Y over an equipment slot: the game's own equipment flyout for that slot. It is opened the way the game opens it from
+-- the slot's pop-out arrow (that button's own click handler, run as game code), which also keeps it open; the pointer
+-- then goes to its first button. Not in combat.
+local function openEquipFlyout(slot)
+    local fly = _G.EquipmentFlyoutFrame
+    if not (fly and _G.EquipmentFlyout_Show and _G.EquipmentFlyoutButton_OnClick and _G.GetInventoryItemsForSlot) then
+        equipFlyoutFail("The game's equipment flyout is not available on this client.")
+        return false
+    end
+    if not fly.ubHooked then
+        fly.ubHooked = true
+        fly:HookScript("OnHide", function()
+            if cursor.flyoutSlot then
+                cursor.flyoutSlot = nil
+                if API.padYield and API.cursorEnd and C_Timer then C_Timer.After(0, API.cursorEnd) end
+            end
+        end)
+    end
+    local pb = slot.popoutButton
+    local ok, err
+    if pb and not pb.flyoutLocked and _G.EquipmentFlyoutPopoutButton_OnClick then
+        ok, err = secureCall(_G.EquipmentFlyoutPopoutButton_OnClick, pb)
+    else
+        ok, err = secureCall(_G.EquipmentFlyout_Show, slot)
+    end
+    if not ok then equipFlyoutFail("The equipment flyout raised an error: " .. tostring(err)); return false end
+    if not fly:IsShown() then
+        -- nothing else fits this slot
+        if pb and pb.flyoutLocked then pb.flyoutLocked = false end
+        equipFlyoutFail("There is nothing in your bags that fits this slot.")
+        return false
+    end
+    cursor.flyoutSlot = slot
+    refreshNodes()
+    snapToMenu(fly)
+    return true
+end
+
+----------------------------------------------------------------------
+-- Y on an equipped item: Swap item, Open sockets, and everything in the bags that is used on an equipped item
+----------------------------------------------------------------------
+-- Which bag items are listed: the game's item classes "Consumable / Item Enhancement" and "Item Enhancement (temporary)" (armor kits, oils and stones,
+-- runes, enchant scrolls) and "Item Enhancement", as long as the item has a use spell. The game decides at use whether the
+-- item fits the chosen slot (the item targeting cursor); the list does not guess that.
+local applyMenu
+local APPLY_MAX = 14
+
+local function applyCandidates()
+    local out, byId = {}, {}
+    local C = Enum and Enum.ItemClass
+    if not (C and C_Container and C_Container.GetContainerNumSlots and C_Container.GetContainerItemInfo
+        and C_Item and C_Item.GetItemInfoInstant) then return out end
+    local subs = {}
+    local CS = Enum.ItemConsumableSubclass
+    if CS then
+        -- permanent (kits, runes, scrolls) and temporary (sharpening stones, weightstones, oils) item enhancements
+        subs[CS.Itemenhancement or 6] = true
+        subs[CS.ItemenhancementTemporary or 15] = true
+    end
+    for bag = 0, (NUM_TOTAL_EQUIPPED_BAG_SLOTS or 5) do
+        for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
+            local info = C_Container.GetContainerItemInfo(bag, slot)
+            local id = info and info.itemID
+            if id then
+                local e = byId[id]
+                if e then
+                    e.count = e.count + (info.stackCount or 1)
+                else
+                    local ok, _, _, _, _, _, classID, subID = pcall(C_Item.GetItemInfoInstant, id)
+                    local okS, spell = pcall(C_Item.GetItemSpell, id)
+                    if ok and okS and spell and ((classID == C.Consumable and subs[subID]) or classID == C.ItemEnhancement) then
+                        e = { id = id, bag = bag, slot = slot, count = info.stackCount or 1,
+                              name = info.itemName or (C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)) or ("Item " .. id) }
+                        byId[id] = e
+                        out[#out + 1] = e
+                    end
+                end
+            end
+        end
+    end
+    table.sort(out, function(a, b) return a.name < b.name end)
+    return out
+end
+
+local confirmWatch   -- set up below
+
+local function buildApplyMenu()
+    local m = CreateFrame("Frame", "UbermocApplyMenu", UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
+    m:HookScript("OnHide", function()
+        if cursor.menuSwitch then cursor.menuSwitch = nil; return end
+        cursor.applySlot = nil
+        if API.padYield and API.cursorEnd and C_Timer then C_Timer.After(0, API.cursorEnd) end
+    end)
+    m:SetFrameStrata("FULLSCREEN_DIALOG")
+    m:SetFrameLevel(100)
+    m:SetClampedToScreen(true)
+    m:EnableMouse(true)
+    if m.SetBackdrop then
+        m:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 2 })
+        m:SetBackdropColor(0.03, 0.04, 0.08, 0.96)
+        m:SetBackdropBorderColor(1, 0.82, 0.1, 1)
+    end
+    m.title = m:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    m.title:SetPoint("TOP", 0, -8)
+    m.title:SetWidth(240)
+    m.plain, m.sec = {}, {}
+    local function size(b)
+        b:SetSize(250, 26)
+        local fs = b:GetFontString()
+        if fs then fs:SetWidth(232); fs:SetWordWrap(false) end
+    end
+    for i = 1, 2 do
+        local b = CreateFrame("Button", "UbermocApplyPlain" .. i, m, "UIPanelButtonTemplate")
+        size(b)
+        b:RegisterForClicks("AnyUp")
+        b:Hide()
+        m.plain[i] = b
+    end
+    for i = 1, APPLY_MAX do
+        local b = CreateFrame("Button", "UbermocApplyBtn" .. i, m, "SecureActionButtonTemplate, UIPanelButtonTemplate")
+        size(b)
+        b:RegisterForClicks("AnyDown", "AnyUp")
+        b:SetAttribute("useOnKeyDown", true)
+        b:SetAttribute("type", "item")
+        b.ubSecure = true
+        -- after the use: the menu closes, and a confirmation window (bind / replace enchant), if one comes, gets the pointer
+        b:HookScript("PostClick", function()
+            C_Timer.After(0.1, function() if applyMenu and applyMenu:IsShown() then applyMenu:Hide() end end)
+            if confirmWatch then confirmWatch() end
+        end)
+        b:Hide()
+        m.sec[i] = b
+    end
+    m:Hide()
+    applyMenu = m
+    return m
+end
+
+local function openApplyMenu(slot, cands)
+    local m = applyMenu or buildApplyMenu()
+    cursor.applySlot = slot
+    local id = slot:GetID()
+    for _, b in ipairs(m.plain) do b:Hide() end
+    for _, b in ipairs(m.sec) do b:Hide() end
+    local y = -28
+    local function place(b)
+        b:ClearAllPoints(); b:SetPoint("TOP", m, "TOP", 0, y); b:Show(); y = y - 30
+    end
+    m.title:SetText("Equipped item")
+    local swap = m.plain[1]
+    swap:SetText("Swap item")
+    swap:SetScript("OnClick", function(_, _, down)
+        if down then return end
+        cursor.menuSwitch = true
+        m:Hide()
+        if not openEquipFlyout(slot) then API.cursorDeactivate() end
+    end)
+    place(swap)
+    local sock = m.plain[2]
+    sock:SetText("Open sockets")
+    sock:SetScript("OnClick", function(_, _, down)
+        if down then return end
+        m:Hide()
+        if _G.SocketInventoryItem then secureCall(_G.SocketInventoryItem, id) end
+    end)
+    place(sock)
+    for i, c in ipairs(cands) do
+        if i > APPLY_MAX then break end
+        local b = m.sec[i]
+        b:SetAttribute("type", "item")
+        b:SetAttribute("item", c.bag .. " " .. c.slot)
+        b:SetAttribute("target-bag", nil)
+        b:SetAttribute("target-slot", id)
+        b:SetText(c.name .. (c.count > 1 and ("  x" .. c.count) or ""))
+        place(b)
+    end
+    m:SetSize(270, -y + 8)
+    m:ClearAllPoints()
+    local r, cy = slot:GetRight(), select(2, slot:GetCenter())
+    local es = slot:GetEffectiveScale() / UIParent:GetEffectiveScale()
+    if r and cy then m:SetPoint("LEFT", UIParent, "BOTTOMLEFT", r * es + 10, cy * es) else m:SetPoint("CENTER", UIParent, "CENTER") end
+    leaveNode(cursor.cur)
+    cursor.cur = nil
+    m:Show()
+    refreshNodes()
+    snapToMenu(m)
+end
+
+local function openEquipSlot(slot)
+    API.padYield = true
+    local ok = activate(true)
+    if not ok or not cursor.active then API.padYield = false; return false end
+    local onNode
+    for _, n in ipairs(cursor.nodes) do if n == slot then onNode = true; break end end
+    if not onNode then deactivate(); return false end
+    focus(slot)
+    -- an equipped item gets the menu (swap, sockets, what can be used on it); an empty slot goes straight to the flyout
+    local equipped = GetInventoryItemTexture and GetInventoryItemTexture("player", slot:GetID()) ~= nil
+    if equipped then
+        local okC, cands = pcall(applyCandidates)
+        if not okC then
+            API.equipFlyoutError = tostring(cands)
+            cands = {}
+        end
+        local okM, errM = pcall(openApplyMenu, slot, cands)
+        if not okM then
+            API.equipFlyoutError = tostring(errM)
+            say("The item menu hit an error: " .. tostring(errM))
+            deactivate()
+        end
+        return true
+    end
+    if not openEquipFlyout(slot) then deactivate() end
+    return true
+end
+
+----------------------------------------------------------------------
+-- Confirmation windows after using an item on an equipped one: bind / replace enchant
+----------------------------------------------------------------------
+-- A confirms, B declines, and a small hint says so. (StaticPopup names and the dialog's two buttons are the game's:
+-- BIND_ENCHANT, REPLACE_ENCHANT and ACTION_WILL_BIND_ITEM, button 1 = accept, button 2 = decline.)
+local CONFIRMS = { BIND_ENCHANT = true, REPLACE_ENCHANT = true, ACTION_WILL_BIND_ITEM = true }
+local function confirmPopup()
+    for i = 1, 4 do
+        local p = _G["StaticPopup" .. i]
+        if p and p.IsShown and p:IsShown() and CONFIRMS[p.which] and p.GetButton1 and p.GetButton2 then return p end
+    end
+end
+
+confirmWatch = function()
+    for _, t in ipairs({ 0.3, 0.8, 1.5, 3 }) do
+        C_Timer.After(t, function()
+            if InCombatLockdown() or cursor.active then return end
+            if confirmPopup() then activate(true) end
+        end)
+    end
+end
+
+local function confirmBtn(name)
+    local b = _G[name]
+    if b then return b end
+    b = CreateFrame("Button", name, UIParent, "SecureActionButtonTemplate")
+    b:SetAttribute("type", "click")
+    b:SetAttribute("useOnKeyDown", false)
+    b:RegisterForClicks("AnyUp")
+    return b
+end
+
+local confirmHint
+local function bindKeys(keys, target)
+    local o = cursor.owner
+    for _, key in ipairs(keys or {}) do SetOverrideBindingClick(o, true, key, target, "LeftButton") end
+end
+
+local function updateConfirm()
+    local p = cursor.active and not InCombatLockdown() and cursor.owner and confirmPopup() or nil
+    if p then
+        if not confirmHint then
+            confirmHint = CreateFrame("Frame", "UbermocConfirmHint", UIParent)
+            confirmHint:SetFrameStrata("TOOLTIP")
+            confirmHint:SetSize(10, 24)
+            confirmHint.bg = confirmHint:CreateTexture(nil, "BACKGROUND")
+            confirmHint.bg:SetAllPoints()
+            confirmHint.bg:SetColorTexture(0, 0, 0, 0.8)
+            confirmHint.text = confirmHint:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            confirmHint.text:SetPoint("CENTER")
+        end
+        local function lab(k) return (API.padLabel and API.padLabel(k, true)) or k end
+        confirmHint.text:SetText("|cff00ff00" .. lab("PAD1") .. "|r |cffffd100Accept|r      |cffff6060" .. lab("PAD2") .. "|r |cffffd100Decline|r")
+        confirmHint:SetWidth(confirmHint.text:GetStringWidth() + 24)
+        confirmHint:ClearAllPoints()
+        confirmHint:SetPoint("TOP", p, "BOTTOM", 0, -4)
+        confirmHint:Show()
+        local acc, dec = confirmBtn("UbermocCursorAcceptBtn"), confirmBtn("UbermocCursorDeclineBtn")
+        acc:SetAttribute("clickbutton", p:GetButton1())
+        dec:SetAttribute("clickbutton", p:GetButton2())
+        if not cursor.confirmOn then
+            cursor.confirmOn = true
+            bindKeys(cursor.clickKeys, "UbermocCursorAcceptBtn")
+            bindKeys(cursor.backKeys, "UbermocCursorDeclineBtn")
+        end
+    else
+        if confirmHint and confirmHint:IsShown() then confirmHint:Hide() end
+        if cursor.confirmOn then
+            cursor.confirmOn = false
+            if not InCombatLockdown() and cursor.owner then
+                bindKeys(cursor.clickKeys, "UbermocCursorKeyA")
+                bindKeys(cursor.backKeys, "UbermocCursorKeyB")
+                cursor.clickTarget = nil
+            end
+        end
+    end
+end
+API.cursorConfirmTick = updateConfirm
+
+-- /ubtaint: lists the game values this addon has tainted (the cause of "execution tainted by UbermocUI" errors).
+SLASH_UBERMOCTAINT1 = "/ubtaint"
+SlashCmdList["UBERMOCTAINT"] = function()
+    local found = 0
+    local function scan(label, t, depth)
+        if type(t) ~= "table" then return end
+        local ok = pcall(function()
+            for k, v in pairs(t) do
+                if type(k) == "string" or type(k) == "number" then
+                    local sec, who = issecurevariable(t, k)
+                    if not sec and who == "UbermocUI" then
+                        found = found + 1
+                        if found <= 40 then print("|cffff9900tainted|r " .. label .. "." .. tostring(k)) end
+                    end
+                end
+            end
+        end)
+        if not ok then print(label .. ": could not be read") end
+    end
+    scan("_G", _G)
+    local pf = _G.PlayerFrame
+    scan("PlayerFrame", pf)
+    scan("healthbar", pf and pf.healthbar)
+    scan("manabar", pf and pf.manabar)
+    scan("CharacterFrame", _G.CharacterFrame)
+    scan("UIPanelWindows", _G.UIPanelWindows)
+    scan("UISpecialFrames", _G.UISpecialFrames)
+    print("Ubermoc UI: " .. found .. " game value(s) tainted by this addon.")
+end
+
+-- /ubequip: reports whether the equipment flyout pieces exist on this client, what the pointer is over, and the last
+-- error the flyout (Y on an equipment slot of the character panel) hit.
+SLASH_UBERMOCEQUIP1 = "/ubequip"
+SlashCmdList["UBERMOCEQUIP"] = function()
+    local function has(n) return type(_G[n]) ~= "nil" and "yes" or "NO" end
+    print("Ubermoc UI equipment flyout self-test:")
+    for _, n in ipairs({ "EquipmentFlyoutFrame", "EquipmentFlyout_Show", "EquipmentFlyoutButton_OnClick",
+                         "EquipmentFlyoutPopoutButton_OnClick", "GetInventoryItemsForSlot", "CharacterFrame", "PaperDollFrame" }) do
+        print(("  %s: %s"):format(n, has(n)))
+    end
+    local ps = API.padCursor
+    local slot = ps and ps.HoveredSlot and ps.HoveredSlot()
+    print(("  pointer over slot: %s (popout arrow %s)"):format(slot and slot:GetName() or "none",
+        slot and slot.popoutButton and "present" or "n/a"))
+    local fly = _G.EquipmentFlyoutFrame
+    print(("  flyout shown=%s, ours=%s, combat=%s"):format(tostring(fly and fly:IsShown()), tostring(cursor.flyoutSlot ~= nil),
+        tostring(InCombatLockdown())))
+    local okC, cands = pcall(applyCandidates)
+    if okC then
+        print(("  bag items that can be used on an equipped item: %d"):format(#cands))
+        for i, c in ipairs(cands) do if i <= 8 then print(("    %s x%d (bag %d slot %d)"):format(c.name, c.count, c.bag, c.slot)) end end
+    else
+        print("  item list error: " .. tostring(cands))
+    end
+    print(("  confirmation window up: %s, apply menu shown: %s"):format(tostring(confirmPopup() and confirmPopup().which),
+        tostring(applyMenu and applyMenu:IsShown())))
+    print("  last error: " .. tostring(API.equipFlyoutError))
+end
+
+-- The same for the equipped-item menu (Y on an equipment slot): built and shown once unseen after login, so the first real
+-- open already has screen positions and the pointer lands on it.
+do
+    local f = CreateFrame("Frame")
+    f:RegisterEvent("PLAYER_ENTERING_WORLD")
+    f:SetScript("OnEvent", function(self)
+        self:UnregisterAllEvents()
+        C_Timer.After(3.5, function()
+            if InCombatLockdown() or cursor.active or applyMenu then return end
+            local ok = pcall(buildApplyMenu)
+            local m = ok and applyMenu
+            if not m then return end
+            local a, b = m.plain[1], m.sec[1]
+            m:SetAlpha(0)
+            m:ClearAllPoints()
+            m:SetPoint("CENTER", UIParent, "CENTER")
+            m:SetSize(270, 100)
+            a:ClearAllPoints(); a:SetPoint("TOP", m, "TOP", 0, -28); a:Show()
+            b:ClearAllPoints(); b:SetPoint("TOP", m, "TOP", 0, -58); b:Show()
+            m:Show()
+            C_Timer.After(0.3, function()
+                a:Hide(); b:Hide()
+                m:Hide()
+                m:SetAlpha(1)
+            end)
+        end)
+    end)
+end
+
 API.cursorItemMenuFrom = function(frame)
     if InCombatLockdown() or not (DB and DB.cursor and DB.cursor.on) then return false end
+    if _G.CharacterFrame and _G.CharacterFrame:IsShown() then
+        local slot = equipSlotOf(frame)
+        if slot then return openEquipSlot(slot) end
+    end
     local target
     local f = frame
     for _ = 1, 5 do
@@ -3607,9 +4074,12 @@ local function buildCursor()
             if fo and fo.ClearFocus and not (fo.IsForbidden and fo:IsForbidden()) then pcall(fo.ClearFocus, fo) end
         end
         local roots = refreshNodes()
+        if API.cursorConfirmTick then pcall(API.cursorConfirmTick) end
         if roots == 0 or #cursor.nodes == 0 then
             -- a short gap (a window changing or sliding in) does not end it
-            cursor.empty = (cursor.empty or 0) + 1
+            local settling = (_G.UbermocApplyMenu and _G.UbermocApplyMenu:IsShown()) or (itemMenu and itemMenu:IsShown())
+                or (cursor.flyoutSlot and _G.EquipmentFlyoutFrame and _G.EquipmentFlyoutFrame:IsShown())
+            cursor.empty = settling and 0 or (cursor.empty or 0) + 1
             if cursor.empty >= 4 then cursor.empty = 0; deactivate() end
         else
             cursor.empty = 0
