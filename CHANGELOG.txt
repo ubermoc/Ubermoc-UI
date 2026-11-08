@@ -1,3 +1,11 @@
+UbermocUI 1.0.120
+- Fixed: the stance / form / Stealth buttons above the floating player frame never showed (the game does not let a spell button be anchored to the portrait ring). They now hang from the frame itself, and the game's own stance bar is hidden while they are up. An error while building them is now shown instead of swallowed.
+- New: the class ability buttons can also stand above the game's own player frame while the floating one is off (option on the Player page).
+- New: Player page sliders to move the class ability buttons left / right and up / down, and to change their size.
+- New: in the spells window, L1 goes to the Spellbook and R1 to Talents, with a hint under the window.
+- Fixed: the Y options menu on a spell or bag item now puts the pointer on its first button, and has a Close button.
+- Changed: the game-menu wheel lists Spellbook and Talents separately on clients that have separate buttons.
+
 UbermocUI 1.0.119
 - Fixed: the finisher damage estimate (Eviscerate / Ferocious Bite) showed nothing because the game gives a spell's text only after the data has been asked for. It now asks first and retries. It is drawn in yellow with a light glow over the enemy's health bar. /ubfinisher shows what it reads.
 - Changed: every way of showing combo points is now on the Combo Points page: on the floating frame's portrait, on the halo frame, on the nameplate, the straight row under the floating frame's bars, and the finisher estimate. They are no longer on the Unit Frames pages.

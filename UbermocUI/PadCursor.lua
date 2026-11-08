@@ -362,6 +362,79 @@ function P.TabStep(direction, key)
     return true
 end
 
+-- The spells window (Specialization, Talents, Spellbook): L1 goes to the Spellbook, R1 to Talents, and a small hint under
+-- the window says so. Only while that window is open.
+local function spellsWindow()
+    local f = _G.PlayerSpellsFrame
+    if not (f and f.IsShown and f:IsShown() and f.IsFrameTabActive and PlayerSpellsUtil and PlayerSpellsUtil.FrameTabs) then return nil end
+    if f.IsInspecting and f:IsInspecting() then return nil end
+    return f
+end
+
+function P.SpellsTab(key)
+    if InCombatLockdown() or not spellsWindow() then return false end
+    if key == "PADLSHOULDER" then
+        secure(PlayerSpellsUtil.OpenToSpellBookTab)
+    elseif key == "PADRSHOULDER" then
+        secure(PlayerSpellsUtil.OpenToClassTalentsTab)
+    else
+        return false
+    end
+    return true
+end
+
+local legend
+local function updateLegend()
+    local f = spellsWindow()
+    if not f or InCombatLockdown() or not inputActive then
+        if legend then legend:Hide() end
+        return
+    end
+    if not legend then
+        legend = CreateFrame("Frame", "UbermocSpellsLegend", UIParent)
+        legend:SetSize(10, 22)
+        legend:SetFrameStrata("HIGH")
+        legend.bg = legend:CreateTexture(nil, "BACKGROUND")
+        legend.bg:SetAllPoints()
+        legend.bg:SetColorTexture(0, 0, 0, 0.6)
+        legend.text = legend:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        legend.text:SetPoint("CENTER")
+    end
+    local lb = API.padLabel and API.padLabel("PADLSHOULDER", true) or "L1"
+    local rb = API.padLabel and API.padLabel("PADRSHOULDER", true) or "R1"
+    local FT = PlayerSpellsUtil.FrameTabs
+    local function item(btn, name, tab)
+        local on = f:IsFrameTabActive(tab)
+        return (on and "|cff00ff00" or "|cffffffff") .. btn .. "|r " .. (on and "|cff00ff00" or "|cffffd100") .. name .. "|r"
+    end
+    legend.text:SetText(item(lb, "Spellbook", FT.SpellBook) .. "      " .. item(rb, "Talents", FT.ClassTalents))
+    legend:SetWidth(legend.text:GetStringWidth() + 24)
+    legend:SetScale(f:GetEffectiveScale() / (UIParent:GetEffectiveScale() or 1))
+    legend:ClearAllPoints()
+    -- just under the window; when it reaches the bottom of the screen, along the screen's bottom edge under it
+    local bottom = f:GetBottom()
+    local cx = f:GetCenter()
+    local es = f:GetEffectiveScale() / (UIParent:GetEffectiveScale() or 1)
+    if bottom and bottom * es > 34 then
+        legend:SetPoint("TOP", f, "BOTTOM", 0, -4)
+    elseif cx then
+        legend:SetPoint("BOTTOM", UIParent, "BOTTOMLEFT", cx * es, 4)
+    else
+        legend:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 4)
+    end
+    legend:Show()
+end
+do
+    local acc = 0
+    local u = CreateFrame("Frame")
+    u:SetScript("OnUpdate", function(_, dt)
+        acc = acc + dt
+        if acc < 0.2 then return end
+        acc = 0
+        pcall(updateLegend)
+    end)
+end
+
 -- The click on a tab is sent when the button is released, because the game only lets addon code place the cursor or
 -- click once per controller event, and the click needs the cursor to have landed first.
 local function onButtonUp(_, key)
@@ -382,9 +455,9 @@ local function onButton(_, key)
     elseif key == "PAD3" then
         click("RightButton")
     elseif key == "PADLSHOULDER" then
-        P.TabStep(-1, key)
+        if not P.SpellsTab(key) then P.TabStep(-1, key) end
     elseif key == "PADRSHOULDER" then
-        P.TabStep(1, key)
+        if not P.SpellsTab(key) then P.TabStep(1, key) end
     elseif key == "PADLTRIGGER" then
         scroll(1)
     elseif key == "PADRTRIGGER" then

@@ -22,7 +22,7 @@ local function defaults()
         enemy = true, friendly = true, hidePlate = true,
         uTarget = true, uFocus = true, uToT = true, uFoT = true,
         sTarget = 100, sFocus = 90, sToT = 75, sFoT = 75,
-        portrait = true, showLevel = true, finisher = true, classButtons = true, classIcon = true, power = true, rareBorder = true, rareSize = 100, rareX = 0, rareY = 0,
+        portrait = true, showLevel = true, finisher = true, classButtons = true, classButtonsOwn = true, classBtnX = 0, classBtnY = 0, classBtnSize = 100, classIcon = true, power = true, rareBorder = true, rareSize = 100, rareX = 0, rareY = 0,
         width = 150, y = 4, nameSize = 12,
         hpText = "percent", powText = "percent", textSize = 10, powTextSize = 8, powH = 8,
         barRound = "medium", barGap = 4, skinTex = { tex = "none", texA = 50 },
@@ -1998,6 +1998,10 @@ local function lookSections(S, unit)
         S.gap()
         S.head("Class abilities")
         S.check("Class ability buttons above the portrait (stances, forms, Stealth, Vanish)", "classButtons")
+        S.check("Also above the game's own player frame while the floating one is off", "classButtonsOwn")
+        S.slider("Buttons: left / right", "classBtnX", -1500, 1500, px)
+        S.slider("Buttons: up / down", "classBtnY", -1500, 1500, px)
+        S.slider("Buttons: size", "classBtnSize", 40, 300, pct)
     elseif unit == "target" then
         S.gap()
         S.note("Combo points, the row of class resource points and the finisher damage estimate are on the Combo Points page.")

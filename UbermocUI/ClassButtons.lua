@@ -8,6 +8,8 @@
 -- portrait and sits above the combo point number; one button is in the middle, two share the middle between them. The
 -- stance bar's own place is left empty while this row is up. They are real spell buttons, so they work in combat; the
 -- row only changes shape outside combat.
+-- With the floating player frame off the row stands over the game's own player frame (option "Also over the game's own
+-- player frame").
 -- Setting: Unit Frames > Player > "Class ability buttons". "/ubclassbuttons off" also switches them off.
 ----------------------------------------------------------------------
 local API = UbermocUIAPI
@@ -22,6 +24,10 @@ local pool = {}
 local shownList = {}      -- the spell ids the row is built for
 local dirty = true
 local lastPlaced = ""
+local lastError           -- the last error the row hit (shown by /ubclassbuttons status instead of being swallowed)
+local warned = false
+local hook   -- a small plain frame that follows the anchor: the game refuses a protected button anchored to a texture
+local curFrame            -- the frame the row stands over now (the floating player frame or the game's own)
 
 local function isSecret(v) return issecretvalue and issecretvalue(v) end
 
@@ -188,6 +194,12 @@ local function stanceBar(hide)
     if f and API.holdHidden then pcall(API.holdHidden, f, hide) end
 end
 
+-- The option to stand over the game's own player frame when the floating one is off (on unless switched off).
+local function ownEnabled()
+    local d = API.floatDB and API.floatDB()
+    return not (d and d.classButtonsOwn == false)
+end
+
 -- How far above the top of the portrait the row sits: clear of the combo point number, which hangs half off the top.
 local function liftAbovePortrait()
     local lift = SPACE
@@ -201,21 +213,52 @@ end
 local function layout()
     if InCombatLockdown() then dirty = true; return end
     local pf = API.floatFrame and API.floatFrame("player")
-    local list = (enabled() and pf and pf:IsShown()) and wantedList() or {}
-    local ring = pf and pf.ring
-    local anchor, point = pf, "TOP"
+    local own = _G.PlayerFrame
+    local floatOn = pf and pf:IsShown()
+    -- the floating player frame when it is on; otherwise the game's own player frame, if that option is on
+    local useOwn = (not floatOn) and ownEnabled() and own and own.IsShown and own:IsShown()
+    local base = floatOn and pf or (useOwn and own) or nil
+    curFrame = base
+    local list = (enabled() and base) and wantedList() or {}
+    local ring = floatOn and pf.ring
+    local anchor, point = base, "TOP"
     if ring and ring.IsShown and ring:IsShown() then anchor = ring end
-    local lift = liftAbovePortrait()
-    local scale = (pf and pf.GetEffectiveScale and pf:GetEffectiveScale() or 1) / (UIParent:GetEffectiveScale() or 1)
+    local cdb = API.floatDB and API.floatDB()
+    local ox = (cdb and tonumber(cdb.classBtnX)) or 0
+    local oy = (cdb and tonumber(cdb.classBtnY)) or 0
+    local sz = math.max(0.2, math.min(4, ((cdb and tonumber(cdb.classBtnSize)) or 100) / 100))
+    local lift = (floatOn and liftAbovePortrait() or SPACE) + oy
+    local scale = (base and base.GetEffectiveScale and base:GetEffectiveScale() or 1) / (UIParent:GetEffectiveScale() or 1)
     if scale <= 0 then scale = 1 end
-    local sig = tostring(lift) .. ":" .. tostring(anchor) .. ":" .. tostring(scale)
+    -- A protected button may not be anchored, even through another frame, to a texture: the row hangs from the frame
+    -- itself, offset to where the ring's top is.
+    local hookTo, ax, ay = anchor, 0, 0
+    if floatOn and anchor == ring then
+        hookTo = pf
+        local rx = ring:GetCenter()
+        local rt = ring:GetTop()
+        local px = pf:GetCenter()
+        local pt = pf:GetTop()
+        if rx and rt and px and pt then ax, ay = math.floor((rx - px) * 2 + 0.5) / 2, math.floor((rt - pt) * 2 + 0.5) / 2 end
+    end
+    local sig = tostring(lift) .. ":" .. tostring(hookTo) .. ":" .. tostring(scale) .. ":" .. ax .. ":" .. ay .. ":" .. ox .. ":" .. sz
     local same = #list == #shownList and lastPlaced == sig
     if same then for i, id in ipairs(list) do if shownList[i] ~= id then same = false; break end end end
+    -- a button that should be up but is not (an earlier pass stopped half way) is built again
+    if same then for i = 1, #list do local pb = pool[i]; if not (pb and pb:IsShown()) then same = false; break end end end
     if same and not dirty then return end
     dirty, lastPlaced = false, sig
     shownList = list
     local n = #list
     local width = n * SIZE + math.max(0, n - 1) * GAP
+    local built, err = pcall(function()
+    if hookTo then
+        if not hook then hook = CreateFrame("Frame", "UbermocClassButtonsAnchor", UIParent); hook:SetSize(1, 1) end
+        hook:SetScale(scale)
+        hook:ClearAllPoints()
+        hook:SetPoint(point, hookTo, point, ax, ay)
+        hook:Show()
+    end
     for i = 1, math.max(n, #pool) do
         local b = pool[i]
         if i <= n then
@@ -226,15 +269,22 @@ local function layout()
             b:SetAttribute("spell", okN and name or nil)
             -- Anchored to the unit frame, but not its child: a protected button inside a frame makes that frame protected
             -- too, and the game then blocks the addon from showing or hiding it in combat.
-            b:SetScale(scale)
+            b:SetScale(scale * sz)
             b:ClearAllPoints()
             -- the middle of the row is the middle of the portrait: one button sits there, two share it between them
-            b:SetPoint("CENTER", anchor, point, -width / 2 + (i - 1) * (SIZE + GAP) + SIZE / 2, lift / scale + SIZE / 2)
+            b:SetPoint("CENTER", hook, "CENTER", ox / (scale * sz) - width / 2 + (i - 1) * (SIZE + GAP) + SIZE / 2, lift / (scale * sz) + SIZE / 2)
             b:Show()
         elseif b then
             b:Hide()
             b.spellID = nil
         end
+    end
+    end)
+    if not built then
+        dirty = true
+        lastError = tostring(err)
+        if not warned then warned = true; print("Ubermoc UI: the class ability buttons hit an error: " .. lastError) end
+        return
     end
     stanceBar(n > 0)
     paint()
@@ -242,7 +292,7 @@ end
 
 -- The row fades and hides with the frame it stands over (opacity can change in combat; showing and hiding cannot).
 local function follow()
-    local pf = API.floatFrame and API.floatFrame("player")
+    local pf = curFrame
     local a = 1
     if not (pf and pf.IsShown and pf:IsShown()) then a = 0
     elseif pf.GetEffectiveAlpha then a = pf:GetEffectiveAlpha() end
@@ -260,7 +310,11 @@ ev:SetScript("OnEvent", function(_, e)
         pcall(paint)
     else
         dirty = true
-        pcall(layout)
+        local ok, err = pcall(layout)
+        if not ok then
+            lastError = tostring(err)
+            if not warned then warned = true; print("Ubermoc UI: the class ability buttons hit an error: " .. lastError) end
+        end
     end
 end)
 local acc = 0
@@ -268,7 +322,11 @@ ev:SetScript("OnUpdate", function(_, dt)
     acc = acc + dt
     if acc < 0.25 then return end
     acc = 0
-    pcall(layout)
+    local ok, err = pcall(layout)
+    if not ok then
+        lastError = tostring(err)
+        if not warned then warned = true; print("Ubermoc UI: the class ability buttons hit an error: " .. lastError) end
+    end
     pcall(follow)
 end)
 
@@ -291,6 +349,8 @@ SlashCmdList["UBERMOCCLASSBUTTONS"] = function(msg)
             end
         end
         local sbar = _G.StanceBar
+        print(("  standing over: %s, own-frame option=%s, last error: %s"):format(
+            tostring(curFrame and (curFrame:GetName() or "frame")), tostring(ownEnabled()), tostring(lastError)))
         print(("  stance bar: forms=%s, alpha=%s"):format(tostring(GetNumShapeshiftForms()), tostring(sbar and sbar:GetAlpha())))
     elseif msg == "on" or msg == "off" then
         UbermocUIDB.classButtonsOff = (msg == "off") or nil

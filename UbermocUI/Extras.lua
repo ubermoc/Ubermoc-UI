@@ -226,6 +226,11 @@ local MICRO_OPEN = {
     TOGGLECHARACTER0 = function() ToggleCharacter("PaperDollFrame") end,
     TOGGLEPROFESSIONBOOK = function() ToggleProfessionsBook() end,
     TOGGLESPELLBOOK = function() PlayerSpellsUtil.ToggleSpellBookFrame() end,
+    TOGGLETALENTS = function()
+        if PlayerSpellsUtil.TogglePlayerSpellsFrame then
+            PlayerSpellsUtil.TogglePlayerSpellsFrame(PlayerSpellsUtil.FrameTabs and PlayerSpellsUtil.FrameTabs.ClassTalents)
+        end
+    end,
     TOGGLEACHIEVEMENT = function() ToggleAchievementFrame() end,
     TOGGLEQUESTLOG = function() ToggleQuestLog() end,
     TOGGLEGUILDTAB = function() ToggleGuildFrame() end,
@@ -927,6 +932,26 @@ local MICRO = {
     { "MainMenuMicroButton", "Game menu", "Interface\\Icons\\INV_Misc_Gear_01", "TOGGLEGAMEMENU" },
 }
 
+-- The game's menu entries that exist on this client. Some clients have one combined "Spellbook and talents" button
+-- (it opens on the talents), others two separate buttons, Spellbook and Talents: those are listed separately, as the
+-- game's own menu does, so the spellbook can be reached.
+local MICRO_SPELLBOOK = { "SpellbookMicroButton", "Spellbook", "Interface\\Icons\\INV_Misc_Book_09", "TOGGLESPELLBOOK" }
+local MICRO_TALENTS = { "TalentMicroButton", "Talents", "Interface\\Icons\\Ability_Marksmanship", "TOGGLETALENTS" }
+local function microEntries()
+    local ps, sb, tb = _G.PlayerSpellsMicroButton, _G.SpellbookMicroButton, _G.TalentMicroButton
+    local separate = sb and tb and not (ps and ps.IsShown and ps:IsShown())
+    local out = {}
+    for _, m in ipairs(MICRO) do
+        if m[1] == "PlayerSpellsMicroButton" and separate then
+            out[#out + 1] = MICRO_SPELLBOOK
+            out[#out + 1] = MICRO_TALENTS
+        else
+            out[#out + 1] = m
+        end
+    end
+    return out
+end
+
 local function buildUtilList()
     local c = DB.utilRing
     local list = {}
@@ -1086,7 +1111,7 @@ end
 local menuRing
 local function menuList()
     local list = {}
-    for _, m in ipairs(MICRO) do
+    for _, m in ipairs(microEntries()) do
         if _G[m[1]] then list[#list + 1] = { t = "micro", id = m[1], name = m[2], icon = m[3], bind = m[4], auto = true } end
     end
     if _G.MainMenuBarBackpackButton then
@@ -1220,7 +1245,7 @@ local function bagList()
 end
 local function microList()
     local list = {}
-    for _, m in ipairs(MICRO) do
+    for _, m in ipairs(microEntries()) do
         if _G[m[1]] then list[#list + 1] = { t = "micro", id = m[1], name = m[2], icon = m[3], bind = m[4], auto = true } end
     end
     return list
@@ -2866,6 +2891,42 @@ local function spellOf(n)
     end
 end
 
+-- A Close button at the bottom of the options menu (B closes it too), and the pointer put on the menu's first button
+-- as soon as it is up, so the pointer is not left behind on the spell or bag slot the menu came from.
+local function placeClose(m, y)
+    if not m.closeBtn then
+        local b = CreateFrame("Button", "UbermocCursorMenuClose", m, "UIPanelButtonTemplate")
+        b:SetSize(190, 26)
+        b:SetText("Close")
+        b:RegisterForClicks("AnyUp")
+        b:SetScript("OnClick", function(_, _, down) if down then return end; closeItemMenu() end)
+        m.closeBtn = b
+    end
+    m.closeBtn:ClearAllPoints()
+    m.closeBtn:SetPoint("TOP", m, "TOP", 0, y)
+    m.closeBtn:Show()
+    return y - 30
+end
+
+local function snapToMenu()
+    local function go()
+        local m = itemMenu
+        if not cursor.active or InCombatLockdown() or not (m and m:IsShown()) then return end
+        refreshNodes()
+        local best, by
+        for _, n in ipairs(cursor.nodes) do
+            local ok, inside = pcall(function() return n.IsDescendantOf and n:IsDescendantOf(m) end)
+            if ok and inside and n.IsVisible and n:IsVisible() then
+                local _, y = n:GetCenter()
+                if y and (not by or y > by) then best, by = n, y end
+            end
+        end
+        if best and cursor.cur ~= best then leaveNode(cursor.cur); cursor.cur = nil; focus(best) end
+    end
+    go()
+    C_Timer.After(0.08, go)
+end
+
 local function openSpellMenu(n, sid)
     local m = itemMenu
     cursor.menuFrom = n
@@ -2895,6 +2956,7 @@ local function openSpellMenu(n, sid)
     for _, b in ipairs(list) do
         b:ClearAllPoints(); b:SetPoint("TOP", m, "TOP", 0, y); b:Show(); y = y - 30
     end
+    y = placeClose(m, y)
     m:SetSize(210, -y + 8)
     m:ClearAllPoints()
     local r, cy = n:GetRight(), select(2, n:GetCenter())
@@ -2904,6 +2966,7 @@ local function openSpellMenu(n, sid)
     cursor.cur = nil
     m:Show()
     refreshNodes()
+    snapToMenu()
 end
 
 -- Bags: what kind of bag an item is, how many slots it has, and the slots it can go in.
@@ -2997,6 +3060,7 @@ local function openBagSlotMenu(n, bag, slot, info, kind)
     list[#list + 1] = back
     local y = -28
     for _, b in ipairs(list) do b:ClearAllPoints(); b:SetPoint("TOP", m, "TOP", 0, y); b:Show(); y = y - 30 end
+    y = placeClose(m, y)
     m:SetSize(210, -y + 8)
     m:ClearAllPoints()
     local r, cy = n:GetRight(), select(2, n:GetCenter())
@@ -3006,6 +3070,7 @@ local function openBagSlotMenu(n, bag, slot, info, kind)
     cursor.cur = nil
     m:Show()
     refreshNodes()
+    snapToMenu()
 end
 
 openItemMenu = function()
@@ -3111,6 +3176,7 @@ openItemMenu = function()
         b:Show()
         y = y - 30
     end
+    y = placeClose(m, y)
     m:SetSize(210, -y + 8)
     -- Placed by screen position: the menu holds secure buttons, so it can't be anchored to other frames.
     m:ClearAllPoints()
@@ -3125,6 +3191,7 @@ openItemMenu = function()
     cursor.cur = nil
     m:Show()
     refreshNodes()
+    snapToMenu()
 end
 
 local PADKEYS = { "PADDUP", "PADDDOWN", "PADDLEFT", "PADDRIGHT" }  -- the item menu key is added below
