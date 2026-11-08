@@ -1,3 +1,6 @@
+UbermocUI 1.0.121
+- Fixed: the Y options menu on a spell or bag item did not take the pointer the first time it was opened (it had no screen position yet). It is now prepared after login and the pointer keeps trying until it lands on the menu. B closes it.
+
 UbermocUI 1.0.120
 - Fixed: the stance / form / Stealth buttons above the floating player frame never showed (the game does not let a spell button be anchored to the portrait ring). They now hang from the frame itself, and the game's own stance bar is hidden while they are up. An error while building them is now shown instead of swallowed.
 - New: the class ability buttons can also stand above the game's own player frame while the floating one is off (option on the Player page).

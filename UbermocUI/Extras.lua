@@ -2891,23 +2891,8 @@ local function spellOf(n)
     end
 end
 
--- A Close button at the bottom of the options menu (B closes it too), and the pointer put on the menu's first button
--- as soon as it is up, so the pointer is not left behind on the spell or bag slot the menu came from.
-local function placeClose(m, y)
-    if not m.closeBtn then
-        local b = CreateFrame("Button", "UbermocCursorMenuClose", m, "UIPanelButtonTemplate")
-        b:SetSize(190, 26)
-        b:SetText("Close")
-        b:RegisterForClicks("AnyUp")
-        b:SetScript("OnClick", function(_, _, down) if down then return end; closeItemMenu() end)
-        m.closeBtn = b
-    end
-    m.closeBtn:ClearAllPoints()
-    m.closeBtn:SetPoint("TOP", m, "TOP", 0, y)
-    m.closeBtn:Show()
-    return y - 30
-end
-
+-- The pointer put on the options menu's first button as soon as it is up, so it is not left behind on the spell or
+-- bag slot the menu came from (B closes the menu).
 local function snapToMenu()
     local function go()
         local m = itemMenu
@@ -2923,8 +2908,18 @@ local function snapToMenu()
         end
         if best and cursor.cur ~= best then leaveNode(cursor.cur); cursor.cur = nil; focus(best) end
     end
+    -- a menu built for the first time has no screen position for a moment, so look again a few times
+    local function landed()
+        local m = itemMenu
+        local c = cursor.cur
+        if not (m and m:IsShown() and c) then return false end
+        local ok, inside = pcall(function() return c.IsDescendantOf and c:IsDescendantOf(m) end)
+        return ok and inside
+    end
     go()
-    C_Timer.After(0.08, go)
+    for _, t in ipairs({ 0.05, 0.15, 0.3, 0.6, 1.0 }) do
+        C_Timer.After(t, function() if not landed() then go() end end)
+    end
 end
 
 local function openSpellMenu(n, sid)
@@ -2956,7 +2951,6 @@ local function openSpellMenu(n, sid)
     for _, b in ipairs(list) do
         b:ClearAllPoints(); b:SetPoint("TOP", m, "TOP", 0, y); b:Show(); y = y - 30
     end
-    y = placeClose(m, y)
     m:SetSize(210, -y + 8)
     m:ClearAllPoints()
     local r, cy = n:GetRight(), select(2, n:GetCenter())
@@ -3060,7 +3054,6 @@ local function openBagSlotMenu(n, bag, slot, info, kind)
     list[#list + 1] = back
     local y = -28
     for _, b in ipairs(list) do b:ClearAllPoints(); b:SetPoint("TOP", m, "TOP", 0, y); b:Show(); y = y - 30 end
-    y = placeClose(m, y)
     m:SetSize(210, -y + 8)
     m:ClearAllPoints()
     local r, cy = n:GetRight(), select(2, n:GetCenter())
@@ -3176,7 +3169,6 @@ openItemMenu = function()
         b:Show()
         y = y - 30
     end
-    y = placeClose(m, y)
     m:SetSize(210, -y + 8)
     -- Placed by screen position: the menu holds secure buttons, so it can't be anchored to other frames.
     m:ClearAllPoints()
@@ -3192,6 +3184,36 @@ openItemMenu = function()
     m:Show()
     refreshNodes()
     snapToMenu()
+end
+
+-- The options menu is built, and shown once without being seen, a moment after login: the first time it was opened
+-- it had no screen position yet, so the pointer could not land on it.
+do
+    local f = CreateFrame("Frame")
+    f:RegisterEvent("PLAYER_ENTERING_WORLD")
+    f:SetScript("OnEvent", function(self)
+        self:UnregisterAllEvents()
+        C_Timer.After(3, function()
+            if InCombatLockdown() or cursor.active or itemMenu then return end
+            local ok = pcall(buildItemMenu)
+            local m = ok and itemMenu
+            if not m then return end
+            local b = m.btns[1]
+            m:SetAlpha(0)
+            m:ClearAllPoints()
+            m:SetPoint("CENTER", UIParent, "CENTER")
+            m:SetSize(210, 60)
+            b:ClearAllPoints()
+            b:SetPoint("TOP", m, "TOP", 0, -28)
+            b:Show()
+            m:Show()
+            C_Timer.After(0.3, function()
+                b:Hide()
+                m:Hide()
+                m:SetAlpha(1)
+            end)
+        end)
+    end)
 end
 
 local PADKEYS = { "PADDUP", "PADDDOWN", "PADDLEFT", "PADDRIGHT" }  -- the item menu key is added below
@@ -3418,6 +3440,7 @@ API.cursorItemMenuFrom = function(frame)
         f = f.GetParent and f:GetParent() or nil
     end
     if not target then return false end
+    if not itemMenu then buildItemMenu() end
     API.padYield = true
     local ok = activate(true)
     if not ok or not cursor.active then API.padYield = false; return false end
