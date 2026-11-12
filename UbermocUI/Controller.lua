@@ -1296,7 +1296,10 @@ local function build()
         end
         if mode ~= "listen" then return end
         for _, o in ipairs(order) do if o.key == key then return end end
-        order[#order + 1] = { key = key, label = padLabel(key, true) }
+        -- The modifiers held at this press, as the game reports them: a pad button that stands in for Shift / Ctrl / Alt
+        -- may reach this window only as a held modifier and not as a button press of its own.
+        order[#order + 1] = { key = key, label = padLabel(key, true),
+            held = (IsAltKeyDown() and "ALT-" or "") .. (IsControlKeyDown() and "CTRL-" or "") .. (IsShiftKeyDown() and "SHIFT-" or "") }
         timeLeft = TIME.listen
         -- everything before the last press is a modifier if the game uses it as one
         for i, o in ipairs(order) do
@@ -1313,6 +1316,14 @@ local function build()
             for _, e in ipairs(EMU) do
                 if emulatorOf(e[2]) == order[i].key and not prefix:find(e[2], 1, true) then prefix = prefix .. e[2] end
             end
+        end
+        -- Modifiers the game held when the last button went down count too (but not the last button's own: if it is
+        -- itself the Shift / Ctrl / Alt button, the bind is that button).
+        local lastIsMod = false
+        for _, e in ipairs(EMU) do if emulatorOf(e[2]) == last then lastIsMod = true end end
+        local held = lastIsMod and "" or (order[#order].held or "")
+        for _, m in ipairs({ "ALT-", "CTRL-", "SHIFT-" }) do
+            if held:find(m, 1, true) and not prefix:find(m, 1, true) then prefix = prefix .. m end
         end
         local canon = (prefix:find("ALT%-") and "ALT-" or "") .. (prefix:find("CTRL%-") and "CTRL-" or "") .. (prefix:find("SHIFT%-") and "SHIFT-" or "")
         commit(canon .. last)
