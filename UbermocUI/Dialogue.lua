@@ -233,8 +233,8 @@ local function makeButton(parent)
 end
 
 local function goldString(copper)
-    if GetCoinTextureString then
-        local ok, s = pcall(GetCoinTextureString, copper)
+    if C_CurrencyInfo and C_CurrencyInfo.GetCoinTextureString then
+        local ok, s = pcall(C_CurrencyInfo.GetCoinTextureString, copper or 0)
         if ok and type(s) == "string" then return s end
     end
     return tostring(math.floor((copper or 0) / 10000)) .. "g"
@@ -735,8 +735,8 @@ local function itemEntry(kind, i)
     if not name then return nil end
     local link = GetQuestItemLink and GetQuestItemLink(kind, i)
     local price
-    if link and GetItemInfo then
-        local ok, p = pcall(function() return select(11, GetItemInfo(link)) end)
+    if link and C_Item and C_Item.GetItemInfo then
+        local ok, p = pcall(function() return select(11, C_Item.GetItemInfo(link)) end)
         if ok and type(p) == "number" then price = p * (count or 1) end
     end
     return { kind = kind, idx = i, name = name, tex = tex, count = count, quality = quality, price = price,
@@ -875,7 +875,7 @@ end
 
 local function dataDetail()
     local d = { mode = "detail", npc = npcName(), portrait = true }
-    d.title = GetTitle and GetTitle() or "Quest"
+    d.title = GetTitleText and GetTitleText() or "Quest"
     local text = (GetQuestText and GetQuestText()) or ""
     local obj = (GetObjectiveText and GetObjectiveText()) or ""
     if obj ~= "" then text = text .. "\n\n" .. obj end
@@ -896,7 +896,7 @@ end
 
 local function dataProgress()
     local d = { mode = "progress", npc = npcName(), portrait = true }
-    d.title = GetTitle and GetTitle() or "Quest"
+    d.title = GetTitleText and GetTitleText() or "Quest"
     d.text = (GetProgressText and GetProgressText()) or ""
     d.required = {}
     for i = 1, N(GetNumQuestItems) do
@@ -915,7 +915,7 @@ end
 
 local function dataComplete()
     local d = { mode = "complete", npc = npcName(), portrait = true }
-    d.title = GetTitle and GetTitle() or "Quest"
+    d.title = GetTitleText and GetTitleText() or "Quest"
     d.text = (GetRewardText and GetRewardText()) or ""
     rewardLists(d)
     d.primary, d.secondary = "Complete", "Not now"

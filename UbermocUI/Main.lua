@@ -7792,7 +7792,7 @@ end
 -- Vendors: sell grey items and repair when a merchant window opens
 ----------------------------------------------------------------------
 local function coinText(copper)
-    if GetCoinTextureString then return GetCoinTextureString(copper) end
+    if C_CurrencyInfo and C_CurrencyInfo.GetCoinTextureString then return C_CurrencyInfo.GetCoinTextureString(copper) end
     local g, sv, c = math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100
     return g .. "g " .. sv .. "s " .. c .. "c"
 end
