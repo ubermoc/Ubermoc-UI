@@ -1,4 +1,4 @@
-## Interface: 16001, 120105
+## Interface: 16001
 ## Title: Ubermoc UI
 ## Notes: Play World of Warcraft with just a controller, no mouse or keyboard needed. Radial menus, a pointer for every window, controller-friendly dialogue, round unit frames and a minimal interface that fades out of the way.
 ## AddonCompartmentFunc: UbermocUI_OnCompartmentClick
