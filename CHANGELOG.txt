@@ -1,3 +1,6 @@
+UbermocUI 1.0.123
+- Fixed: the action bars no longer write notes onto the game's protected buttons (position, busy and hooked flags now live in this addon's own tables), which could taint them and cause "action blocked" errors. Untested in the game.
+
 UbermocUI 1.0.122
 - New: on the character screen, Y over an equipped item opens a menu with the equipment flyout (swap the item), sockets, and every item in your bags that is used on equipment: sharpening stones, weightstones, oils, armor kits, runes and enchant scrolls. The game decides whether the item fits. The pointer goes to the menu, B closes it.
 - New: when the game asks to confirm using an item on equipment (enchant replacement, soulbinding), A accepts and B declines, with a hint at the bottom.
