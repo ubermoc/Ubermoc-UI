@@ -571,11 +571,13 @@ end
 ----------------------------------------------------------------------
 -- Holding the game's buttons where we want them
 ----------------------------------------------------------------------
+-- Our notes about the game's buttons live in our own tables: writing fields onto a protected button taints it.
+local btnPos, btnBusy, btnHooked = setmetatable({}, { __mode = "k" }), setmetatable({}, { __mode = "k" }), setmetatable({}, { __mode = "k" })
 local function reapply(btn)
-    local w = btn.ubermocPos
-    if not w or btn.ubermocBusy then return end
+    local w = btnPos[btn]
+    if not w or btnBusy[btn] then return end
     if InCombatLockdown() then pending = true; return end
-    btn.ubermocBusy = true
+    btnBusy[btn] = true
     pcall(function()
         local par = btn:GetParent()
         local pe = par and par.GetEffectiveScale and par:GetEffectiveScale()
@@ -585,7 +587,7 @@ local function reapply(btn)
         btn:ClearAllPoints()
         btn:SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", w.x, w.y)
     end)
-    btn.ubermocBusy = false
+    btnBusy[btn] = false
 end
 
 local function take(btn, bar)
@@ -594,10 +596,10 @@ local function take(btn, bar)
         for i = 1, btn:GetNumPoints() do pts[i] = { btn:GetPoint(i) } end
         taken[btn] = { pts = pts, scale = btn:GetScale(), w = btn:GetWidth(), h = btn:GetHeight(),
                        strata = btn:GetFrameStrata(), bar = bar }
-        if not btn.ubermocHooked then
-            btn.ubermocHooked = true
-            hooksecurefunc(btn, "SetPoint", function(self) if self.ubermocPos and not self.ubermocBusy then reapply(self) end end)
-            hooksecurefunc(btn, "SetSize", function(self) if self.ubermocPos and not self.ubermocBusy then reapply(self) end end)
+        if not btnHooked[btn] then
+            btnHooked[btn] = true
+            hooksecurefunc(btn, "SetPoint", function(self) if btnPos[self] and not btnBusy[self] then reapply(self) end end)
+            hooksecurefunc(btn, "SetSize", function(self) if btnPos[self] and not btnBusy[self] then reapply(self) end end)
         end
     end
     pcall(function()
@@ -625,7 +627,7 @@ local function release(btn)
     local st = taken[btn]
     if not st then return end
     taken[btn] = nil
-    btn.ubermocPos = nil
+    btnPos[btn] = nil
     pcall(function()
         btn:SetAlpha(1)
         btn:SetIgnoreParentAlpha(false)
@@ -839,7 +841,7 @@ end
 
 local function place(r, L, i, x, y, s, col, d)
     local slot = L.slots[i]
-    slot.btn.ubermocPos = { x = x, y = y, s = s }
+    btnPos[slot.btn] = { x = x, y = y, s = s }
     take(slot.btn, slot.bar)
     if slot.virtual then slot.btn:Show() else dressButton(slot.btn) end
     reapply(slot.btn)

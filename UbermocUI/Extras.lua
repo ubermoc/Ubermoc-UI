@@ -3519,8 +3519,8 @@ local function openEquipFlyout(slot)
         equipFlyoutFail("The game's equipment flyout is not available on this client.")
         return false
     end
-    if not fly.ubHooked then
-        fly.ubHooked = true
+    if not cursor.flyHooked then
+        cursor.flyHooked = true
         fly:HookScript("OnHide", function()
             if cursor.flyoutSlot then
                 cursor.flyoutSlot = nil
@@ -4118,9 +4118,10 @@ local function buildCursor()
     end)
 
     -- Windows without an event (bags, character, map...): open the cursor when they show.
+    local showHooked = setmetatable({}, { __mode = "k" })   -- not a field on the game's frame (taint)
     local function hookShow(f)
-        if type(f) == "table" and f.HookScript and not f.ubermocCursorHook then
-            f.ubermocCursorHook = true
+        if type(f) == "table" and f.HookScript and not showHooked[f] then
+            showHooked[f] = true
             f:HookScript("OnShow", function()
                 if DB and DB.cursor.auto then C_Timer.After(0.35, function() activate(false) end) end
             end)

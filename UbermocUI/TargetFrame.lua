@@ -381,8 +381,10 @@ local function auraIcon(parent, harmful)
         end
         if not done and self.blizz then
             local fn = self.blizz:GetScript("OnEnter")
-            if fn then done = pcall(fn, self.blizz) end
-            if done then GameTooltip:SetOwner(self, "ANCHOR_BOTTOMRIGHT"); pcall(fn, self.blizz) end
+            if fn then
+                GameTooltip:SetOwner(self, "ANCHOR_BOTTOMRIGHT")
+                done = pcall(fn, self.blizz)
+            end
         end
         GameTooltip:Show()
     end)

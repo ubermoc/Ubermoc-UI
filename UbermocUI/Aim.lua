@@ -168,11 +168,13 @@ local function learnFrom(b)
     dirty = true
     if not InCombatLockdown() then applyGround() end
 end
+-- Our own notes about the game's action buttons are kept here, never written onto the buttons (that taints them).
+local watched, groundHooked, ground = setmetatable({}, { __mode = "k" }), setmetatable({}, { __mode = "k" }), setmetatable({}, { __mode = "k" })
 local function watchPress(b)
-    if b.ubWatch then return end
-    b.ubWatch = true
+    if watched[b] then return end
+    watched[b] = true
     b:HookScript("PreClick", function(self)
-        if self.ubGround or not DB().hold then return end
+        if ground[self] or not DB().hold then return end
         if SpellIsTargeting and SpellIsTargeting() then return end   -- a reticle was already open
         C_Timer.After(0.1, function()
             if SpellIsTargeting and SpellIsTargeting() then learnFrom(self) end
@@ -194,19 +196,19 @@ function applyGround()
                 if name then
                     b:SetAttribute("typerelease", "macro")
                     b:SetAttribute("macrotext", "/stopspelltarget\n/cast [@cursor] " .. name)
-                    if not b.ubGroundHook then
-                        b.ubGroundHook = true
+                    if not groundHooked[b] then
+                        groundHooked[b] = true
                         b:HookScript("PreClick", function(self, _, down)
-                            if not self.ubGround then return end
+                            if not ground[self] then return end
                             if down then held, heldAt = self, GetTime()
                             elseif held == self then held = nil end
                         end)
                     end
-                    b.ubGround = true
-                elseif b.ubGround then
+                    ground[b] = true
+                elseif ground[b] then
                     b:SetAttribute("typerelease", nil)
                     b:SetAttribute("macrotext", nil)
-                    b.ubGround = false
+                    ground[b] = false
                 end
             end
         end
@@ -355,7 +357,7 @@ SlashCmdList["UBERMOCAIM"] = function()
     say("game is waiting for a spot: " .. yn(SpellIsTargeting and SpellIsTargeting()) .. ", ground button held: " .. yn(held))
     say("controller camera on: " .. yn(cameraSteered()) .. ", centered pointer height: " .. string.format("%.3f", centerFraction()))
     local n = 0
-    for _, prefix in ipairs(BARS) do for i = 1, 12 do local b = _G[prefix .. i]; if b and b.ubGround then n = n + 1 end end end
+    for _, prefix in ipairs(BARS) do for i = 1, 12 do local b = _G[prefix .. i]; if b and ground[b] then n = n + 1 end end end
     say("action buttons set up for hold-and-release: " .. n)
     local okT, tv = pcall(GetCVar, TCV)
     say("aim height setting: " .. tostring(d.height) .. "%")

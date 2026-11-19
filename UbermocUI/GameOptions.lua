@@ -156,12 +156,13 @@ local function openRest()
     end)
     opening = false
 end
+local bagHooked = setmetatable({}, { __mode = "k" })   -- not a field on the game's frame (taint)
 local function hookBags()
     local list = { _G.ContainerFrameCombinedBags }
     for i = 1, NUM_CONTAINER_FRAMES or 13 do list[#list + 1] = _G["ContainerFrame" .. i] end
     for _, fr in ipairs(list) do
-        if fr and fr.HookScript and not fr.ubOpenAll then
-            fr.ubOpenAll = true
+        if fr and fr.HookScript and not bagHooked[fr] then
+            bagHooked[fr] = true
             fr:HookScript("OnShow", function() C_Timer.After(0, openRest) end)
         end
     end

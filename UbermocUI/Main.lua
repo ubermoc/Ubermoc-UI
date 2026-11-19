@@ -2921,9 +2921,11 @@ function UbermocUIAPI.makeLauncher()
         if not InCombatLockdown() then
             pcall(function()
                 if _G.SettingsPanel and _G.SettingsPanel:IsShown() then
-                    if HideUIPanel then HideUIPanel(_G.SettingsPanel) else _G.SettingsPanel:Hide() end
+                    if HideUIPanel and securecallfunction then securecallfunction(HideUIPanel, _G.SettingsPanel) elseif HideUIPanel then HideUIPanel(_G.SettingsPanel) else _G.SettingsPanel:Hide() end
                 end
-                if _G.GameMenuFrame and _G.GameMenuFrame:IsShown() then HideUIPanel(_G.GameMenuFrame) end
+                if _G.GameMenuFrame and _G.GameMenuFrame:IsShown() then
+                    if securecallfunction then securecallfunction(HideUIPanel, _G.GameMenuFrame) else HideUIPanel(_G.GameMenuFrame) end
+                end
             end)
         end
         if UbermocUIAPI.cursorRestart then C_Timer.After(0.1, function() pcall(UbermocUIAPI.cursorRestart) end) end

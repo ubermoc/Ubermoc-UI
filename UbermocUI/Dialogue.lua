@@ -970,7 +970,9 @@ local function fallbackToGame(err)
         S.released = true
         for _, n in ipairs({ "GossipFrame", "QuestFrame" }) do
             local fr = _G[n]
-            if fr and fr.IsShown and fr:IsShown() and ShowUIPanel then pcall(ShowUIPanel, fr) end
+            if fr and fr.IsShown and fr:IsShown() and ShowUIPanel then
+                if securecallfunction then pcall(securecallfunction, ShowUIPanel, fr) else pcall(ShowUIPanel, fr) end
+            end
         end
     end
 end
